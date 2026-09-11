@@ -4308,6 +4308,7 @@ Current version indicated by LITEVER below.
 	var current_memory = ""; //stored memory
 	var current_anote = ""; //stored author note
 	var current_anotetemplate = "[Author\'s note: <|>]";
+	var current_posthistory = ""; //post-history instructions, injected at the very end of context (deepest position)
 
 	var anote_strength = 320; //distance from end
 	var newlineaftermemory = true;
@@ -4557,6 +4558,7 @@ Current version indicated by LITEVER below.
 		export_settings: true, //affects if settings are included with the story and sharelinks
 		show_advanced_load: false, //if true, every load opens the selector window
 		import_tavern_prompt: true, //when opening character cards, prompt for chat or instruct mode
+		import_as_story_narrator: false, //when opening character cards, import as a story-mode narrator (persona to memory, greeting as prose, cast to world info)
 		invert_colors: false,
 		sidepanel_mode: false,
 		passed_ai_warning: false, //used to store AI safety panel acknowledgement state
@@ -11028,6 +11030,7 @@ Current version indicated by LITEVER below.
 		new_save_storyobj.anotetemplate = current_anotetemplate;
 		new_save_storyobj.authorsnote = current_anote;
 		new_save_storyobj.memory = current_memory;
+		new_save_storyobj.posthistory = current_posthistory;
 		new_save_storyobj.worldinfo = current_wi;
 
 		//extra unofficial fields for the story
@@ -11357,6 +11360,9 @@ Current version indicated by LITEVER below.
 				if (storyobj.memory) {
 					current_memory = storyobj.memory;
 				}
+				if (storyobj.posthistory) {
+					current_posthistory = storyobj.posthistory;
+				}
 				if (storyobj.worldinfo) {
 					current_wi = storyobj.worldinfo;
 				}
@@ -11468,6 +11474,9 @@ Current version indicated by LITEVER below.
 				}
 				if (storyobj.memory) {
 					current_memory = storyobj.memory;
+				}
+				if (storyobj.posthistory) {
+					current_posthistory = storyobj.posthistory;
 				}
 				if (storyobj.worldinfo_v2 != null && storyobj.worldinfo_v2.entries != null) {
 					for (var key in storyobj.worldinfo_v2.entries) {
@@ -12028,7 +12037,17 @@ Current version indicated by LITEVER below.
 				current_memory = combinedmem + "\n***";
 				personal_notes = personalnotes;
 				localsettings.multiline_replies = true;
-				if(usechatmode)
+				if(localsettings.import_as_story_narrator)
+				{
+					//import as a third-person story narrator: persona stays in memory, greeting becomes opening prose, cast goes to world info
+					localsettings.opmode = 1;
+					current_memory = combinedmem;
+					if(greeting!="")
+					{
+						gametext_arr.push(greeting);
+					}
+				}
+				else if(usechatmode)
 				{
 					localsettings.opmode = 3;
 					if(localsettings.gui_type_chat!=3)
@@ -12067,7 +12086,11 @@ Current version indicated by LITEVER below.
 			sync_multiplayer(true);
 		}
 
-		if(localsettings.import_tavern_prompt)
+		if(localsettings.import_as_story_narrator)
+		{
+			load_tav_obj_confirm_p1(false);
+		}
+		else if(localsettings.import_tavern_prompt)
 		{
 			msgboxYesNo("Import Character Card in Instruct Mode?\n\nYes = Instruct Mode Used\nNo = Chat Mode Used\n\nIf unsure, select 'No'.","Import Tavern Card Mode", ()=>{
 				load_tav_obj_confirm_p1(false);
@@ -16846,6 +16869,7 @@ Current version indicated by LITEVER below.
 		document.getElementById("export_settings").checked = localsettings.export_settings;
 		document.getElementById("show_advanced_load").checked = localsettings.show_advanced_load;
 		document.getElementById("import_tavern_prompt").checked = localsettings.import_tavern_prompt;
+		document.getElementById("import_as_story_narrator").checked = localsettings.import_as_story_narrator;
 		document.getElementById("invert_colors").checked = localsettings.invert_colors;
 		document.getElementById("colortheme").value = localsettings.colortheme;
 		document.getElementById("sidepanel_mode").checked = localsettings.sidepanel_mode;
@@ -17798,6 +17822,7 @@ Current version indicated by LITEVER below.
 		localsettings.export_settings = (document.getElementById("export_settings").checked ? true : false);
 		localsettings.show_advanced_load = (document.getElementById("show_advanced_load").checked ? true : false);
 		localsettings.import_tavern_prompt = (document.getElementById("import_tavern_prompt").checked ? true : false);
+		localsettings.import_as_story_narrator = (document.getElementById("import_as_story_narrator").checked ? true : false);
 		localsettings.invert_colors = (document.getElementById("invert_colors").checked ? true : false);
 		localsettings.colortheme = parseInt(document.getElementById("colortheme").value);
 		localsettings.sidepanel_mode = (document.getElementById("sidepanel_mode").checked ? true : false);
@@ -18548,6 +18573,7 @@ Current version indicated by LITEVER below.
 	function confirm_memory() {
 		current_memory = document.getElementById("memorytext").value;
 		current_anote = document.getElementById("anotetext").value;
+		current_posthistory = document.getElementById("posthistorytext").value;
 		current_anotetemplate = document.getElementById("anotetemplate").value;
 		anote_strength = document.getElementById("anote_strength").value;
 		newlineaftermemory = (document.getElementById("newlineaftermemory").checked?true:false);
@@ -19058,6 +19084,7 @@ Current version indicated by LITEVER below.
 			personal_notes = "";
 			current_memory = "";
 			current_anote = "";
+			current_posthistory = "";
 			current_wi = [];
 			anote_strength = 320;
 			wi_searchdepth = 0;
@@ -21689,6 +21716,7 @@ Current version indicated by LITEVER below.
 			}
 
 			let truncated_anote = current_anotetemplate.replace("<|>", current_anote);
+			let truncated_posthistory = current_posthistory ? current_posthistory : "";
 
 			if (current_anote.length == 0) {
 				//if there's no authors note at all, don't include the template
@@ -21707,13 +21735,15 @@ Current version indicated by LITEVER below.
 			//if memory or authors note is not blank,
 			//append memory to the start of the context and insert anote somewhere before the ending
 			//if they are too long, clip excess space and resize the context so they can fit inside
-			if (appendedsysprompt.length > 0 || truncated_memory.length > 0 || truncated_anote.length > 0)
+			if (appendedsysprompt.length > 0 || truncated_memory.length > 0 || truncated_anote.length > 0 || truncated_posthistory.length > 0)
 			{
 				appendedsysprompt = replace_placeholders(appendedsysprompt,false,false,true);
 				truncated_memory = replace_placeholders(truncated_memory,false,false,true);
 				truncated_memory = appendedsysprompt + truncate_memory(truncated_memory, max_mem_len, true);
 				truncated_anote = replace_placeholders(truncated_anote,false,false,false);
 				truncated_anote = substring_to_boundary(truncated_anote, max_anote_len);
+				truncated_posthistory = replace_placeholders(truncated_posthistory,false,false,false);
+				truncated_posthistory = substring_to_boundary(truncated_posthistory, max_anote_len);
 				let min_context_len = Math.min(32, max_allowed_characters);
 				if(!is_using_kcpp_with_added_memory())
 				{
@@ -21727,7 +21757,7 @@ Current version indicated by LITEVER below.
 					{
 						truncated_memory = truncate_memory(truncated_memory, available_aux_len - truncated_anote.length, true);
 					}
-					let newlimit = Math.max(min_context_len, max_allowed_characters - truncated_memory.length - truncated_anote.length);
+					let newlimit = Math.max(min_context_len, max_allowed_characters - truncated_memory.length - truncated_anote.length - truncated_posthistory.length);
 					truncated_context = substring_to_boundary(truncated_context, newlimit);
 				}
 				else
@@ -21737,7 +21767,7 @@ Current version indicated by LITEVER below.
 					{
 						truncated_anote = substring_to_boundary(truncated_anote, available_anote_len);
 					}
-					let newlimit = Math.max(min_context_len, max_allowed_characters - truncated_anote.length);
+					let newlimit = Math.max(min_context_len, max_allowed_characters - truncated_anote.length - truncated_posthistory.length);
 					truncated_context = substring_to_boundary(truncated_context, newlimit);
 				}
 
@@ -21774,6 +21804,11 @@ Current version indicated by LITEVER below.
 				if(!is_using_kcpp_with_added_memory())
 				{
 					truncated_context = truncated_memory + truncated_context;
+				}
+				if(truncated_posthistory.length > 0)
+				{
+					//inject post-history at the very end of context, right before the AI's reply
+					truncated_context = truncated_context + "\n" + truncated_posthistory;
 				}
 			}
 			if(is_using_kcpp_with_added_memory())
@@ -28215,6 +28250,7 @@ Current version indicated by LITEVER below.
 		//setup memory tab
 		document.getElementById("memorytext").value = current_memory;
 		document.getElementById("anotetext").value = current_anote;
+		document.getElementById("posthistorytext").value = current_posthistory;
 		document.getElementById("anotetemplate").value = current_anotetemplate;
 		document.getElementById("anote_strength").value = anote_strength;
 		document.getElementById("newlineaftermemory").checked = (newlineaftermemory?true:false);
@@ -31309,6 +31345,13 @@ Current version indicated by LITEVER below.
 					placeholder="Author's Note will be inserted close to end of context."></textarea>
 				<br>
 				<div class="settinglabel">
+					<span class="justifyleft">Post-History Instructions <span class="helpicon">?<span
+						class="helptext">Injected at the very end of the context, immediately before the AI's reply - the deepest, least-forgotten position. Ideal for style rules you want re-asserted every turn.</span></span></span>
+				</div>
+				<textarea title="Edit Post-History Instructions" style="height: 80px;" class="form-control menuinput_multiline" id="posthistorytext"
+					placeholder="Injected at the very end of context, just before the AI's reply."></textarea>
+				<br>
+				<div class="settinglabel">
 					<span class="justifyleft">Author's Note Template <span class="helpicon">?<span
 						class="helptext">A placeholder, will be inserted with the author's note replacing the &lt;|&gt;. You generally don't need to change this.</span></span></span>
 					<span class="justifyright push-right" >A/N Strength <span class="helpicon">?<span
@@ -32914,6 +32957,11 @@ Current version indicated by LITEVER below.
 							<div class="justifyleft">Prompt for mode upon importing card <span class="helpicon">?<span
 								class="helptext">If enabled, prompts the user to choose what mode to import a character card in. If disabled, automatically picks chat mode.</span></span></div>
 							<input title="Character Card Import Prompt" type="checkbox" id="import_tavern_prompt" class="push-right">
+						</div>
+						<div class="settinglabel">
+							<div class="justifyleft">Import cards as story narrator <span class="helpicon">?<span
+								class="helptext">If enabled, character cards import into Story mode as a third-person narrator: the persona goes into Memory, the greeting becomes the opening prose (no name prefix), and any embedded character book / cast loads into World Info. Overrides the mode prompt above.</span></span></div>
+							<input title="Import Card As Story Narrator" type="checkbox" id="import_as_story_narrator" class="push-right">
 						</div>
 
 						<h3>Advanced Settings</h3>
