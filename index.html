@@ -12000,10 +12000,6 @@ Current version indicated by LITEVER below.
 			{
 				scenario = "\n[Scenario: "+scenario+"]";
 			}
-			if(posthistoryinstructions!="")
-			{
-				posthistoryinstructions = "\n[Special Instructions: "+posthistoryinstructions+"]";
-			}
 			if(examplemsg!="")
 			{
 				examplemsg = "\n"+(/^<START>\r?\n/.test(examplemsg)?"":"<START>\n")+examplemsg;
@@ -12012,7 +12008,8 @@ Current version indicated by LITEVER below.
 			{
 				sysprompt = sysprompt+"\n";
 			}
-			let combinedmem = sysprompt + memory + scenario + posthistoryinstructions + examplemsg;
+			//post_history_instructions is routed to the Post-History field (deep injection), not folded into memory
+			let combinedmem = sysprompt + memory + scenario + examplemsg;
 			let agnaidatafieldsempty = scenario + examplemsg + (obj.personality?obj.personality:"") + greeting;
 			let has_tav_wi_check = has_tavern_wi_check(obj);
 			//check if it's a world info only card, if so, do not restart game
@@ -12035,6 +12032,7 @@ Current version indicated by LITEVER below.
 				localsettings.chatname = myname;
 				localsettings.chatopponent = chatopponent;
 				current_memory = combinedmem + "\n***";
+				current_posthistory = posthistoryinstructions;
 				personal_notes = personalnotes;
 				localsettings.multiline_replies = true;
 				if(localsettings.import_as_story_narrator)
