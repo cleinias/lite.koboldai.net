@@ -12262,10 +12262,6 @@ Current version indicated by LITEVER below.
 			{
 				scenario = "\n[Scenario: "+scenario+"]";
 			}
-			if(posthistoryinstructions!="")
-			{
-				posthistoryinstructions = "\n[Special Instructions: "+posthistoryinstructions+"]";
-			}
 			if(examplemsg!="")
 			{
 				examplemsg = "\n"+(/^<START>\r?\n/.test(examplemsg)?"":"<START>\n")+examplemsg;
@@ -12274,14 +12270,25 @@ Current version indicated by LITEVER below.
 			{
 				sysprompt = sysprompt+"\n";
 			}
-			let combinedmem = sysprompt + memory + scenario + posthistoryinstructions + examplemsg;
+			//post_history_instructions is routed to the Post-History field (deep injection), not folded into memory
+			let combinedmem = sysprompt + memory + scenario + examplemsg;
 			temp_scenario.title = chatopponent;
 			let prev2 = replaceAll(obj.description,"{{char}}",chatopponent,true);
 			prev2 = replaceAll(prev2,"{{user}}","User",true);
 			temp_scenario.desc = prev2;
 			temp_scenario.chatopponent = chatopponent;
-			temp_scenario.prompt = ("\n{{char}}: "+ greeting);
+			if(localsettings.import_as_story_narrator)
+			{
+				//import as a third-person story narrator: story mode, greeting as opening prose (no name prefix)
+				temp_scenario.opmode = 1;
+				temp_scenario.prompt = greeting;
+			}
+			else
+			{
+				temp_scenario.prompt = ("\n{{char}}: "+ greeting);
+			}
 			temp_scenario.memory = combinedmem;
+			temp_scenario.posthistory = posthistoryinstructions;
 			temp_scenario.personalnotes = creatornotes;
 
 			//since cai format has no wi, try to grab it from tavern format
@@ -12540,6 +12547,13 @@ Current version indicated by LITEVER below.
 			if(!localsettings.placeholder_tags)
 			{
 				current_memory = replace_placeholders(current_memory, false, true, false);
+			}
+		}
+		if (temp_scenario.posthistory) {
+			current_posthistory = temp_scenario.posthistory;
+			if(!localsettings.placeholder_tags)
+			{
+				current_posthistory = replace_placeholders(current_posthistory, false, true, false);
 			}
 		}
 		if (temp_scenario.image && temp_scenario.image != "") {
