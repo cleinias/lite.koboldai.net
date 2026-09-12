@@ -4557,6 +4557,7 @@ Current version indicated by LITEVER below.
 		export_settings: true, //affects if settings are included with the story and sharelinks
 		show_advanced_load: false, //if true, every load opens the selector window
 		import_tavern_prompt: true, //when opening character cards, prompt for chat or instruct mode
+		import_as_story_narrator: false, //when opening character cards, import as a story-mode narrator (persona to memory, greeting as prose, cast to world info)
 		invert_colors: false,
 		sidepanel_mode: false,
 		passed_ai_warning: false, //used to store AI safety panel acknowledgement state
@@ -12028,7 +12029,17 @@ Current version indicated by LITEVER below.
 				current_memory = combinedmem + "\n***";
 				personal_notes = personalnotes;
 				localsettings.multiline_replies = true;
-				if(usechatmode)
+				if(localsettings.import_as_story_narrator)
+				{
+					//import as a third-person story narrator: persona stays in memory, greeting becomes opening prose, cast goes to world info
+					localsettings.opmode = 1;
+					current_memory = combinedmem;
+					if(greeting!="")
+					{
+						gametext_arr.push(greeting);
+					}
+				}
+				else if(usechatmode)
 				{
 					localsettings.opmode = 3;
 					if(localsettings.gui_type_chat!=3)
@@ -12067,7 +12078,11 @@ Current version indicated by LITEVER below.
 			sync_multiplayer(true);
 		}
 
-		if(localsettings.import_tavern_prompt)
+		if(localsettings.import_as_story_narrator)
+		{
+			load_tav_obj_confirm_p1(false);
+		}
+		else if(localsettings.import_tavern_prompt)
 		{
 			msgboxYesNo("Import Character Card in Instruct Mode?\n\nYes = Instruct Mode Used\nNo = Chat Mode Used\n\nIf unsure, select 'No'.","Import Tavern Card Mode", ()=>{
 				load_tav_obj_confirm_p1(false);
@@ -12259,7 +12274,16 @@ Current version indicated by LITEVER below.
 			prev2 = replaceAll(prev2,"{{user}}","User",true);
 			temp_scenario.desc = prev2;
 			temp_scenario.chatopponent = chatopponent;
-			temp_scenario.prompt = ("\n{{char}}: "+ greeting);
+			if(localsettings.import_as_story_narrator)
+			{
+				//import as a third-person story narrator: story mode, greeting as opening prose (no name prefix)
+				temp_scenario.opmode = 1;
+				temp_scenario.prompt = greeting;
+			}
+			else
+			{
+				temp_scenario.prompt = ("\n{{char}}: "+ greeting);
+			}
 			temp_scenario.memory = combinedmem;
 			temp_scenario.personalnotes = creatornotes;
 
@@ -16846,6 +16870,7 @@ Current version indicated by LITEVER below.
 		document.getElementById("export_settings").checked = localsettings.export_settings;
 		document.getElementById("show_advanced_load").checked = localsettings.show_advanced_load;
 		document.getElementById("import_tavern_prompt").checked = localsettings.import_tavern_prompt;
+		document.getElementById("import_as_story_narrator").checked = localsettings.import_as_story_narrator;
 		document.getElementById("invert_colors").checked = localsettings.invert_colors;
 		document.getElementById("colortheme").value = localsettings.colortheme;
 		document.getElementById("sidepanel_mode").checked = localsettings.sidepanel_mode;
@@ -17798,6 +17823,7 @@ Current version indicated by LITEVER below.
 		localsettings.export_settings = (document.getElementById("export_settings").checked ? true : false);
 		localsettings.show_advanced_load = (document.getElementById("show_advanced_load").checked ? true : false);
 		localsettings.import_tavern_prompt = (document.getElementById("import_tavern_prompt").checked ? true : false);
+		localsettings.import_as_story_narrator = (document.getElementById("import_as_story_narrator").checked ? true : false);
 		localsettings.invert_colors = (document.getElementById("invert_colors").checked ? true : false);
 		localsettings.colortheme = parseInt(document.getElementById("colortheme").value);
 		localsettings.sidepanel_mode = (document.getElementById("sidepanel_mode").checked ? true : false);
@@ -32981,6 +33007,11 @@ Current version indicated by LITEVER below.
 							<div class="justifyleft">Prompt for mode upon importing card <span class="helpicon">?<span
 								class="helptext">If enabled, prompts the user to choose what mode to import a character card in. If disabled, automatically picks chat mode.</span></span></div>
 							<input title="Character Card Import Prompt" type="checkbox" id="import_tavern_prompt" class="push-right">
+						</div>
+						<div class="settinglabel">
+							<div class="justifyleft">Import cards as story narrator <span class="helpicon">?<span
+								class="helptext">If enabled, character cards import into Story mode as a third-person narrator: the persona goes into Memory, the greeting becomes the opening prose (no name prefix), and any embedded character book / cast loads into World Info. Overrides the mode prompt above.</span></span></div>
+							<input title="Import Card As Story Narrator" type="checkbox" id="import_as_story_narrator" class="push-right">
 						</div>
 
 						<h3>Advanced Settings</h3>
