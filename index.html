@@ -11993,6 +11993,7 @@ Current version indicated by LITEVER below.
 			let sysprompt = obj.system_prompt?obj.system_prompt:"";
 			let personalnotes = obj.creator_notes?obj.creator_notes:"";
 			let posthistoryinstructions = obj.post_history_instructions?obj.post_history_instructions:"";
+			let depthprompt = get_card_depth_prompt(obj);
 			let greeting = selectedgreeting;
 
 			//post process
@@ -12033,6 +12034,7 @@ Current version indicated by LITEVER below.
 				localsettings.chatopponent = chatopponent;
 				current_memory = combinedmem + "\n***";
 				current_posthistory = posthistoryinstructions;
+				current_anote = depthprompt;
 				personal_notes = personalnotes;
 				localsettings.multiline_replies = true;
 				if(localsettings.import_as_story_narrator)
@@ -12234,6 +12236,14 @@ Current version indicated by LITEVER below.
 		return loadedwi;
 	}
 
+	function get_card_depth_prompt(obj)
+	{
+		//SillyTavern depth_prompt / Character's Note (data.extensions.depth_prompt.prompt) -> mapped to Author's Note
+		let dp = null;
+		if(obj && obj.extensions && obj.extensions.depth_prompt) { dp = obj.extensions.depth_prompt; }
+		else if(obj && obj.data && obj.data.extensions && obj.data.extensions.depth_prompt) { dp = obj.data.extensions.depth_prompt; }
+		return (dp && dp.prompt) ? dp.prompt : "";
+	}
 	function load_temp_scenario_from_tavernobj(obj)
 	{
 		if(obj!=null)
@@ -12253,6 +12263,7 @@ Current version indicated by LITEVER below.
 			let sysprompt = obj.system_prompt?obj.system_prompt:"";
 			let creatornotes = obj.creator_notes?obj.creator_notes:"";
 			let posthistoryinstructions = obj.post_history_instructions?obj.post_history_instructions:"";
+			let depthprompt = get_card_depth_prompt(obj);
 
 			//aliases
 			examplemsg = (examplemsg==="" && obj.mesExample)?obj.mesExample:examplemsg;
@@ -12289,6 +12300,7 @@ Current version indicated by LITEVER below.
 			}
 			temp_scenario.memory = combinedmem;
 			temp_scenario.posthistory = posthistoryinstructions;
+			temp_scenario.authorsnote = depthprompt;
 			temp_scenario.personalnotes = creatornotes;
 
 			//since cai format has no wi, try to grab it from tavern format
