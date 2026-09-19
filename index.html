@@ -28216,6 +28216,28 @@ Current version indicated by LITEVER below.
 		}
 	}
 
+	//--- Continuous save to disk (feat/continuous-save-to-disk) ---
+	//Best-effort mirror of the current story to a local saver process, fired on
+	//every autosave tick. A browser cannot expose its own storage to an external
+	//reader, so the page must PUSH: we POST the plain prose to a tiny local HTTP
+	//server that writes it to a file (so other tools can watch/read the draft).
+	//The browser autosave above remains the durable source of truth; this is only
+	//a mirror. Set continuous_save_url to "" to disable. The paired server must
+	//send an Access-Control-Allow-Origin header or the browser will block the POST.
+	var continuous_save_url = "http://localhost:5002/save";
+	function continuous_save_to_disk() {
+		if (!continuous_save_url) { return; }
+		try {
+			let story = concat_gametext(true, "");
+			fetch(continuous_save_url, {
+				method: "POST",
+				headers: { "Content-Type": "text/plain;charset=UTF-8" },
+				body: story,
+				keepalive: true
+			}).catch(() => {}); //server down / CORS: silently skip this mirror
+		} catch (e) { /* never let the disk mirror break autosave */ }
+	}
+
 	function autosave() {
 		//autosave
 		try {
@@ -28227,7 +28249,7 @@ Current version indicated by LITEVER below.
 		} catch (e) {
 			console.error("Autosave Failed: " + e);
 		}
-
+		continuous_save_to_disk(); //independent, best-effort disk mirror
 	}
 
 	function btn_adventure_mode()
