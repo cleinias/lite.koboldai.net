@@ -4496,6 +4496,8 @@ Current version indicated by LITEVER below.
 		inject_randomness_seed: 999,
 		request_logprobs: false,
 		persist_session: true,
+		continuous_save_enabled: false, //feat/continuous-save-to-disk
+		continuous_save_port: 5002,
 		tts_mode: 0, //0 is off
 		xtts_voice: "female_calm",
 		kcpp_tts_voice: "kobo",
@@ -16856,6 +16858,8 @@ Current version indicated by LITEVER below.
 		document.getElementById("request_logprobs").checked = localsettings.request_logprobs;
 		document.getElementById("eos_ban_mode").value = localsettings.eos_ban_mode;
 		document.getElementById("persist_session").checked = localsettings.persist_session;
+		document.getElementById("continuous_save_enabled").checked = localsettings.continuous_save_enabled;
+		document.getElementById("continuous_save_port").value = localsettings.continuous_save_port;
 		document.getElementById("opmode").value = localsettings.opmode;
 		document.getElementById("chatname").value = localsettings.chatname;
 		document.getElementById("chatopponent").value = replaceAll(localsettings.chatopponent,"||$||","\n");
@@ -17808,6 +17812,8 @@ Current version indicated by LITEVER below.
 		localsettings.request_logprobs = (document.getElementById("request_logprobs").checked ? true : false);
 		localsettings.eos_ban_mode = document.getElementById("eos_ban_mode").value;
 		localsettings.persist_session = (document.getElementById("persist_session").checked ? true : false);
+		localsettings.continuous_save_enabled = (document.getElementById("continuous_save_enabled").checked ? true : false);
+		localsettings.continuous_save_port = (parseInt(document.getElementById("continuous_save_port").value) || 5002);
 		localsettings.raw_instruct_tags = (document.getElementById("raw_instruct_tags").checked ? true : false);
 		localsettings.show_endpoint_selector = (document.getElementById("show_endpoint_selector").checked ? true : false);
 		localsettings.no_warn_unsaved = (document.getElementById("no_warn_unsaved").checked ? true : false);
@@ -28224,6 +28230,28 @@ Current version indicated by LITEVER below.
 		}
 	}
 
+	//--- Continuous save to disk (feat/continuous-save-to-disk) ---
+	//Best-effort mirror of the current story to a local saver process, fired on
+	//every autosave tick. A browser cannot expose its own storage to an external
+	//reader, so the page must PUSH: we POST the plain prose to a tiny local HTTP
+	//server that writes it to a file (so other tools can watch/read the draft).
+	//The browser autosave above remains the durable source of truth; this is only
+	//a mirror. Toggle it in Settings ("Continuous save to file", default port 5002). The server must
+	//send an Access-Control-Allow-Origin header or the browser will block the POST.
+	//The endpoint is built from the port setting (default 5002).
+	function continuous_save_to_disk() {
+		if (!localsettings.continuous_save_enabled) { return; }
+		try {
+			let story = concat_gametext(true, "");
+			fetch("http://localhost:" + (localsettings.continuous_save_port || 5002) + "/save", {
+				method: "POST",
+				headers: { "Content-Type": "text/plain;charset=UTF-8" },
+				body: story,
+				keepalive: true
+			}).catch(() => {}); //server down / CORS: silently skip this mirror
+		} catch (e) { /* never let the disk mirror break autosave */ }
+	}
+
 	function autosave() {
 		//autosave
 		try {
@@ -28235,7 +28263,7 @@ Current version indicated by LITEVER below.
 		} catch (e) {
 			console.error("Autosave Failed: " + e);
 		}
-
+		continuous_save_to_disk(); //independent, best-effort disk mirror
 	}
 
 	function btn_adventure_mode()
@@ -32950,6 +32978,16 @@ Current version indicated by LITEVER below.
 							<div class="justifyleft">Autosave session <span class="helpicon">?<span
 								class="helptext">Autosaves your current story and settings on exit, reloads when you return</span></span></div>
 							<input title="Autosave Session" type="checkbox" id="persist_session" class="push-right">
+						</div>
+						<div class="settinglabel">
+							<div class="justifyleft">Continuous save to file <span class="helpicon">?<span
+								class="helptext">Mirror the story to a local saver (POST localhost:PORT/save) on each autosave, so external tools can read the live draft. Needs a companion server that sends CORS headers; serve Lite over http.</span></span></div>
+							<input title="Continuous Save To File" type="checkbox" id="continuous_save_enabled" class="push-right">
+						</div>
+						<div class="settinglabel">
+							<div class="justifyleft">Continuous save port <span class="helpicon">?<span
+								class="helptext">Port of the local save server (default 5002).</span></span></div>
+							<input title="Continuous Save Port" type="number" id="continuous_save_port" class="push-right" style="width:80px;">
 						</div>
 						<div class="settinglabel">
 							<div class="justifyleft">Embed settings in save <span class="helpicon">?<span
