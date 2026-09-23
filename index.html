@@ -28679,7 +28679,7 @@ Current version indicated by LITEVER below.
 		let who = (localsettings.mschat_provider == 2) ? (localsettings.mschat_model || "?")
 			: (mschat_kobold_model || "KoboldCpp");
 		let d = new Date();
-		return who + " · " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+		return who + " · " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
 	}
 	function mschat_push(role, text, meta)
 	{
@@ -28790,7 +28790,8 @@ Current version indicated by LITEVER below.
 	function mschat_split_long(para, chunk_chars)
 	{
 		if (para.length <= chunk_chars) { return [para]; }
-		let splitters = [s => s.split("\n"), s => s.split(/(?<=[.!?…»"'”’])\s+/)];
+		//sentence ends, keeping the punctuation with its sentence (no lookbehind: Firefox 50)
+		let splitters = [s => s.split("\n"), s => s.replace(/([.!?…»"'”’])\s+/g, "$1\u0000").split("\u0000")];
 		for (let split of splitters)
 		{
 			let parts = split(para).map(p => p.trim()).filter(p => p);
@@ -28842,8 +28843,10 @@ Current version indicated by LITEVER below.
 
 	function mschat_tok(s)
 	{
-		let out = [];
-		for (let m of s.toLowerCase().matchAll(MSCHAT_WORD_RE))
+		let out = [], m;
+		let low = s.toLowerCase();
+		MSCHAT_WORD_RE.lastIndex = 0; //a global regex carries its position between calls
+		while ((m = MSCHAT_WORD_RE.exec(low)) !== null) //exec loop rather than matchAll: Firefox 50
 		{
 			if (!MSCHAT_STOP.has(m[0])) { out.push(m[0]); }
 		}
@@ -28892,8 +28895,9 @@ Current version indicated by LITEVER below.
 	//--- the request -------------------------------------------------------
 	//Its own fetch, deliberately: Lite's generate path carries story state,
 	//samplers and the active connection, none of which this should touch.
-	async function mschat_call(system, user)
-	{
+	//asyncRunner + yield rather than async/await: Lite keeps to what Firefox 50 parses.
+	const mschat_call = asyncRunner(function* (system, user)
+{
 		let t = mschat_target();
 		if (!t.url) { throw new Error("No URL set. Open the gear button and choose a provider for this pane."); }
 		if (t.needmodel && !t.model) { throw new Error("No model chosen for this pane: open the gear button and Fetch or enter one."); }
@@ -28908,7 +28912,7 @@ Current version indicated by LITEVER below.
 		let resp;
 		try
 		{
-			resp = await fetch(url, {
+			resp = yield fetch(url, {
 				method: "POST",
 				headers: headers,
 				signal: mschat_abortctl ? mschat_abortctl.signal : undefined,
@@ -28929,7 +28933,7 @@ Current version indicated by LITEVER below.
 			throw new Error("Could not reach " + url + " — the endpoint is down, or it did not send the "
 				+ "CORS headers a browser needs (" + e.message + ").");
 		}
-		let raw = await resp.text();
+		let raw = yield resp.text();
 		let data = null;
 		try { data = JSON.parse(raw); } catch (e) { /* fall through to the raw text */ }
 		if ((resp.status == 429 || resp.status == 503) && attempt < MSCHAT_RETRIES)
@@ -28939,7 +28943,7 @@ Current version indicated by LITEVER below.
 			let el = document.getElementById("mschatstatus");
 			let before = el ? el.innerText : "";
 			mschat_status((resp.status == 429 ? "rate limited" : "server busy") + " — retrying in " + Math.round(wait) + " s…");
-			await new Promise(r => setTimeout(r, wait * 1000));
+			yield new Promise(r => setTimeout(r, wait * 1000));
 			if (mschat_stopped) { throw new Error("Stopped."); }
 			mschat_status(before);
 			continue;
@@ -28961,11 +28965,11 @@ Current version indicated by LITEVER below.
 		if (!txt) { throw new Error("The endpoint returned no message content: " + raw.substr(0, 200)); }
 		return txt.trim();
 		}
-	}
+	});
 
 	//--- the ask -----------------------------------------------------------
-	async function mschat_ask(preview)
-	{
+	const mschat_ask = asyncRunner(function* (preview)
+{
 		if (mschat_busy) { return; }
 		mschat_save_fields();
 		let box = document.getElementById("mschat_input");
@@ -29012,7 +29016,7 @@ Current version indicated by LITEVER below.
 				}
 				let user = "MANUSCRIPT:\n" + text + "\n\n===\nQUESTION: " + question;
 				if (preview) { mschat_preview_out(user, "stuff — the whole draft"); }
-				else { mschat_push("a", await mschat_call(localsettings.mschat_system, user), "stuff · whole draft (~" + mschat_est_tokens(text).toLocaleString() + " tok)"); }
+				else { mschat_push("a", (yield mschat_call(localsettings.mschat_system, user)), "stuff · whole draft (~" + mschat_est_tokens(text).toLocaleString() + " tok)"); }
 			}
 			else
 			{
@@ -29031,7 +29035,7 @@ Current version indicated by LITEVER below.
 					let user = "MANUSCRIPT EXCERPTS:\n" + ctx + "\n\n===\nQUESTION: " + question + "\n" + note;
 					let label = "retrieve · " + picked.length + "/" + chunks.length + " passages";
 					if (preview) { mschat_preview_out(user, label); }
-					else { mschat_push("a", await mschat_call(localsettings.mschat_system, user), label); }
+					else { mschat_push("a", (yield mschat_call(localsettings.mschat_system, user)), label); }
 				}
 				else if (mode === 3) //map-reduce
 				{
@@ -29044,7 +29048,7 @@ Current version indicated by LITEVER below.
 					{
 						if (chunks.length + 1 > MSCHAT_MAPREDUCE_CONFIRM)
 						{
-							let go = await new Promise(res => msgboxYesNo("Map-reduce would make <b>" + (chunks.length + 1)
+							let go = yield new Promise(res => msgboxYesNo("Map-reduce would make <b>" + (chunks.length + 1)
 								+ " requests</b> for this question: one for each of " + chunks.length + " passages, then one to "
 								+ "combine them. On a local model that can take a long time.<br><br>For fewer, larger passages, "
 								+ "raise the pane's Context; or use Retrieve instead. Go ahead anyway?",
@@ -29076,7 +29080,7 @@ Current version indicated by LITEVER below.
 								+ "If nothing in it bears on the question at all, reply exactly 'NONE'.";
 							try
 							{
-								let a = await mschat_call(localsettings.mschat_system, u);
+								let a = yield mschat_call(localsettings.mschat_system, u);
 								if (a && a.trim().toUpperCase() !== "NONE") { partials.push("[from excerpt " + (i + 1) + "] " + a.trim()); }
 							}
 							catch (e)
@@ -29103,7 +29107,7 @@ Current version indicated by LITEVER below.
 							+ "usually ONE thing cut by an excerpt boundary: merge such reports before you count or list "
 							+ "anything. Then answer the question in one coherent reply, without repeating yourself. "
 							+ "If it asks for your opinion or judgment, give it, with reasons.";
-						mschat_push("a", await mschat_call(localsettings.mschat_system, u),
+						mschat_push("a", (yield mschat_call(localsettings.mschat_system, u)),
 							"map-reduce · " + chunks.length + " passages"
 							+ (failed.length ? " (" + failed.length + " failed)" : ""));
 					}
@@ -29121,7 +29125,7 @@ Current version indicated by LITEVER below.
 			mschat_abortctl = null;
 			mschat_set_busy(false);
 		}
-	}
+	});
 
 	//Stop: cancel the request in flight, end a map-reduce loop, and — since a
 	//cancelled HTTP request does not stop KoboldCpp generating — tell a KoboldCpp
@@ -29191,13 +29195,18 @@ Current version indicated by LITEVER below.
 				Math.round(r.width), Math.round(r.height)].join(",");
 		}
 
+		//Pointer events cover mouse, pen and touch; a browser without them (Firefox
+		//before 59) still gets mouse dragging rather than a window that will not move.
+		const EV_DOWN = window.PointerEvent ? "pointerdown" : "mousedown";
+		const EV_MOVE = window.PointerEvent ? "pointermove" : "mousemove";
+		const EV_UP = window.PointerEvent ? "pointerup" : "mouseup";
 		function start(mode, ev)
 		{
 			let r = win.getBoundingClientRect();
 			drag = { mode: mode, sx: ev.clientX, sy: ev.clientY, l: r.left, t: r.top, w: r.width, h: r.height };
 			ev.preventDefault();
-			window.addEventListener("pointermove", move);
-			window.addEventListener("pointerup", end);
+			window.addEventListener(EV_MOVE, move);
+			window.addEventListener(EV_UP, end);
 		}
 		function move(ev)
 		{
@@ -29209,15 +29218,15 @@ Current version indicated by LITEVER below.
 		function end()
 		{
 			drag = null;
-			window.removeEventListener("pointermove", move);
-			window.removeEventListener("pointerup", end);
+			window.removeEventListener(EV_MOVE, move);
+			window.removeEventListener(EV_UP, end);
 			save_geom();
 		}
-		bar.addEventListener("pointerdown", ev => {
+		bar.addEventListener(EV_DOWN, ev => {
 			if (ev.target.closest("button")) { return; } //title-bar buttons stay clickable
 			start("move", ev);
 		});
-		grip.addEventListener("pointerdown", ev => start("resize", ev));
+		grip.addEventListener(EV_DOWN, ev => start("resize", ev));
 
 		if (localsettings.mschat_geom)
 		{
