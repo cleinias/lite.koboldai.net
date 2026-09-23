@@ -3654,6 +3654,7 @@ Current version indicated by LITEVER below.
 		border-radius: 3px;
 	}
 	.mschatconnrow textarea { resize: vertical; line-height: 1.25; }
+	.mschatconnrow .mschatconnbtn { flex: 0 0 auto; font-size: 11px; padding: 2px 8px; line-height: 1.4; }
 	.mschatconnnote { display: block; font-size: 10px; color: var(--theme_color_fg_muted); line-height: 1.3; }
 	.mschatlog {
 		flex: 1 1 auto;
@@ -4747,7 +4748,10 @@ Current version indicated by LITEVER below.
 		//Its own connection on purpose: the prose can stay with a small local
 		//model while the questions about the prose go to a large one.
 		mschat_open: false,
-		mschat_endpoint: "", //e.g. https://api.openai.com/v1 or http://localhost:5001/v1
+		mschat_provider: 1, //1 = KoboldAI Remote API (KoboldCpp), 2 = OpenAI Compatible API — as in the main AI dialog
+		mschat_kobold_endpoint: "", //blank = use the story connection's KoboldCpp address
+		saved_mschat_kobold_key: "",
+		mschat_endpoint: "https://api.openai.com/v1", //the OpenAI-compatible URL
 		saved_mschat_key: "", //redacted out of saved and shared stories, like every other key
 		mschat_model: "",
 		mschat_temperature: 0.3,
@@ -4867,6 +4871,10 @@ Current version indicated by LITEVER below.
 		saved_cohere_key: true,
 		saved_kai_addr: true,
 		saved_kai_key: true,
+		mschat_kobold_endpoint: true, //feat/manuscript-chat-panel: a loaded story must not
+		saved_mschat_kobold_key: true, //repoint the pane (and the manuscript it sends)
+		mschat_endpoint: true,
+		saved_mschat_key: true,
 		saved_a1111_url: true,
 		saved_comfy_url: true,
 		saved_comfy_bearer_token: true,
@@ -11249,6 +11257,8 @@ Current version indicated by LITEVER below.
 			new_save_storyobj.savedsettings.my_api_key = "0000000000";
 			new_save_storyobj.savedsettings.saved_oai_key = "";
 			new_save_storyobj.savedsettings.saved_mschat_key = ""; //feat/manuscript-chat-panel
+			new_save_storyobj.savedsettings.saved_mschat_kobold_key = "";
+			new_save_storyobj.savedsettings.mschat_kobold_endpoint = "";
 			new_save_storyobj.savedsettings.saved_oai_addr = "";
 			new_save_storyobj.savedsettings.saved_dalle_key = "";
 			new_save_storyobj.savedsettings.saved_dalle_url = "";
@@ -28423,9 +28433,13 @@ Current version indicated by LITEVER below.
 	//should be able to repoint it mid-session without opening Settings.
 	function mschat_load_fields()
 	{
-		document.getElementById("mschat_endpoint").value = localsettings.mschat_endpoint;
+		document.getElementById("mschat_provider").value = (localsettings.mschat_provider==2 ? 2 : 1);
+		document.getElementById("mschat_kobold_endpoint").value = localsettings.mschat_kobold_endpoint || mschat_default_kobold_url();
+		document.getElementById("mschat_kobold_key").value = localsettings.saved_mschat_kobold_key;
+		document.getElementById("mschat_endpoint").value = localsettings.mschat_endpoint || "https://api.openai.com/v1";
 		document.getElementById("mschat_key").value = localsettings.saved_mschat_key;
-		document.getElementById("mschat_model").value = localsettings.mschat_model;
+		mschat_set_model_options([], localsettings.mschat_model);
+		mschat_provider_change(true);
 		document.getElementById("mschat_strategy").value = localsettings.mschat_strategy;
 		document.getElementById("mschat_context").value = localsettings.mschat_context;
 		document.getElementById("mschat_maxtokens").value = localsettings.mschat_maxtokens;
@@ -28437,9 +28451,12 @@ Current version indicated by LITEVER below.
 	function mschat_save_fields()
 	{
 		if (!document.getElementById("mschat_endpoint")) { return; }
+		localsettings.mschat_provider = (document.getElementById("mschat_provider").value=="2" ? 2 : 1);
+		localsettings.mschat_kobold_endpoint = document.getElementById("mschat_kobold_endpoint").value.trim();
+		localsettings.saved_mschat_kobold_key = document.getElementById("mschat_kobold_key").value.trim();
 		localsettings.mschat_endpoint = document.getElementById("mschat_endpoint").value.trim();
 		localsettings.saved_mschat_key = document.getElementById("mschat_key").value.trim();
-		localsettings.mschat_model = document.getElementById("mschat_model").value.trim();
+		localsettings.mschat_model = mschat_selected_model();
 		localsettings.mschat_strategy = parseInt(document.getElementById("mschat_strategy").value) || 0;
 		localsettings.mschat_context = parseInt(document.getElementById("mschat_context").value) || 16384;
 		localsettings.mschat_maxtokens = parseInt(document.getElementById("mschat_maxtokens").value) || 700;
@@ -28447,6 +28464,137 @@ Current version indicated by LITEVER below.
 		localsettings.mschat_temperature = isNaN(t) ? 0.3 : t;
 		localsettings.mschat_include_memory = document.getElementById("mschat_include_memory").checked ? true : false;
 		localsettings.mschat_system = document.getElementById("mschat_system").value;
+	}
+
+	//--- the connection, patterned on the main AI dialog ---------------------
+	//The same two providers a local-first writer uses there, with the same
+	//labels: KoboldAI Remote API (a KoboldCpp serves exactly one model, so there
+	//is no model to choose) and OpenAI Compatible API (URL, key, and a model list
+	//you can Fetch, or a Custom name).
+	function mschat_default_kobold_url()
+	{
+		//the story connection's KoboldCpp, if there is one, else KoboldCpp's default
+		return custom_kobold_endpoint || localsettings.saved_kai_addr || "http://localhost:5001";
+	}
+	function mschat_kobold_base(u)
+	{
+		u = (u || "").trim().replace(/\/+$/, "");
+		u = u.replace(/\/(api\/v1|api|v1)$/i, "");
+		return u;
+	}
+	function mschat_provider_change(quiet)
+	{
+		let kobold = document.getElementById("mschat_provider").value != "2";
+		document.getElementById("mschat_kobold_box").classList.toggle("hidden", !kobold);
+		document.getElementById("mschat_oai_box").classList.toggle("hidden", kobold);
+		if (!quiet) { document.getElementById("mschat_conninfo").innerText = ""; }
+		//like the main dialog: pull the model list as soon as there is somewhere to pull it from
+		if (!kobold && !quiet && document.getElementById("mschat_model").options.length <= 1
+			&& document.getElementById("mschat_endpoint").value.trim()) { mschat_fetch_models(true); }
+	}
+	function mschat_set_model_options(ids, keep)
+	{
+		let sel = document.getElementById("mschat_model");
+		let list = ids.slice();
+		if (keep && !list.includes(keep)) { list.unshift(keep); }
+		sel.innerHTML = "";
+		for (let id of list)
+		{
+			let o = document.createElement("option");
+			o.value = id; o.textContent = id;
+			sel.appendChild(o);
+		}
+		if (keep) { sel.value = keep; }
+		document.getElementById("mschat_model_custom").classList.add("hidden");
+		sel.classList.remove("hidden");
+	}
+	function mschat_selected_model()
+	{
+		let c = document.getElementById("mschat_model_custom");
+		if (!c.classList.contains("hidden")) { return c.value.trim(); }
+		return (document.getElementById("mschat_model").value || "").trim();
+	}
+	function mschat_custom_model()
+	{
+		let c = document.getElementById("mschat_model_custom");
+		let sel = document.getElementById("mschat_model");
+		let custom = c.classList.contains("hidden");
+		if (custom) { c.value = sel.value || ""; }
+		c.classList.toggle("hidden", !custom);
+		sel.classList.toggle("hidden", custom);
+		if (custom) { c.focus(); }
+	}
+	function mschat_oai_headers(key)
+	{
+		let h = { "Content-Type": "application/json" };
+		if (key) { h["Authorization"] = "Bearer " + key; }
+		return h;
+	}
+	function mschat_fetch_models(quiet)
+	{
+		let base = document.getElementById("mschat_endpoint").value.trim().replace(/\/+$/, "");
+		let key = document.getElementById("mschat_key").value.trim();
+		let info = document.getElementById("mschat_conninfo");
+		if (!base) { info.innerText = "Set the URL first."; return Promise.resolve(false); }
+		info.innerText = "Fetching models…";
+		return fetch(base + "/models", { method: "GET", headers: mschat_oai_headers(key), referrerPolicy: "no-referrer" })
+		.then(r => r.json())
+		.then(data => {
+			let arr = (data && data.data) || (Array.isArray(data) ? data : []);
+			let ids = arr.map(m => m && m.id).filter(x => !!x).sort();
+			if (!ids.length) { throw new Error((data && data.error && (data.error.message || data.error)) || "no models listed"); }
+			mschat_set_model_options(ids, mschat_selected_model() || ids[0]);
+			info.innerText = ids.length + " models";
+			return true;
+		})
+		.catch(e => {
+			if (!quiet) { info.innerText = "Could not fetch models: " + e.message; }
+			else { info.innerText = ""; }
+			return false;
+		});
+	}
+	//Connect checks the connection and, for KoboldCpp, reports the one model it
+	//serves and takes its context size, so there is nothing to type for it.
+	function mschat_connect()
+	{
+		mschat_save_fields();
+		let info = document.getElementById("mschat_conninfo");
+		if (localsettings.mschat_provider == 2)
+		{
+			mschat_fetch_models(false).then(ok => { if (ok) { mschat_save_fields(); } });
+			return;
+		}
+		let base = mschat_kobold_base(localsettings.mschat_kobold_endpoint || mschat_default_kobold_url());
+		let headers = localsettings.saved_mschat_kobold_key ? { "Authorization": "Bearer " + localsettings.saved_mschat_kobold_key } : {};
+		info.innerText = "Connecting…";
+		fetch(base + "/api/v1/model", { headers: headers })
+		.then(r => r.json())
+		.then(d => {
+			let model = (d && d.result) || "?";
+			return fetch(base + "/api/extra/true_max_context_length", { headers: headers })
+				.then(r => r.json()).then(c => {
+					if (c && c.value) {
+						localsettings.mschat_context = parseInt(c.value);
+						document.getElementById("mschat_context").value = localsettings.mschat_context;
+					}
+					info.innerText = "Connected: " + model + (c && c.value ? " · " + c.value + " ctx" : "");
+				}).catch(() => { info.innerText = "Connected: " + model; });
+		})
+		.catch(e => { info.innerText = "Could not reach " + base + " (" + e.message + ")"; });
+	}
+	//Where the pane's question goes: KoboldCpp answers on its own OpenAI-compatible
+	//chat route, which applies the model's chat template for us.
+	function mschat_target()
+	{
+		if (localsettings.mschat_provider == 2)
+		{
+			let base = (localsettings.mschat_endpoint || "").replace(/\/+$/, "");
+			return { url: base ? base + (base.endsWith("/chat/completions") ? "" : "/chat/completions") : "",
+				key: localsettings.saved_mschat_key, model: localsettings.mschat_model, needmodel: true };
+		}
+		let base = mschat_kobold_base(localsettings.mschat_kobold_endpoint || mschat_default_kobold_url());
+		return { url: base ? base + "/v1/chat/completions" : "", key: localsettings.saved_mschat_kobold_key,
+			model: "koboldcpp", needmodel: false };
 	}
 
 	function mschat_status(txt)
@@ -28461,8 +28609,8 @@ Current version indicated by LITEVER below.
 		{
 			log.innerHTML = '<div class="mschatmsg"><span class="mschatmeta">'
 				+ 'Questions about the draft are answered here and never enter the story. '
-				+ 'Set the endpoint, key and model with the gear button — they are this pane\'s own, '
-				+ 'not the story\'s.</span></div>';
+				+ 'Choose where they go with the gear button (a KoboldCpp, or any OpenAI-compatible API) — '
+				+ 'that connection is this pane\'s own, not the story\'s.</span></div>';
 			return;
 		}
 		let html = "";
@@ -28644,12 +28792,11 @@ Current version indicated by LITEVER below.
 	//samplers and the active connection, none of which this should touch.
 	async function mschat_call(system, user)
 	{
-		let base = localsettings.mschat_endpoint.replace(/\/+$/, "");
-		if (!base) { throw new Error("No endpoint set. Open the gear button and give this pane an endpoint (e.g. https://api.openai.com/v1 or http://localhost:5001/v1)."); }
-		if (!localsettings.mschat_model) { throw new Error("No model set for this pane."); }
-		let url = base + (base.endsWith("/chat/completions") ? "" : "/chat/completions");
-		let headers = { "Content-Type": "application/json" };
-		if (localsettings.saved_mschat_key) { headers["Authorization"] = "Bearer " + localsettings.saved_mschat_key; }
+		let t = mschat_target();
+		if (!t.url) { throw new Error("No URL set. Open the gear button and choose a provider for this pane."); }
+		if (t.needmodel && !t.model) { throw new Error("No model chosen for this pane: open the gear button and Fetch or enter one."); }
+		let url = t.url;
+		let headers = mschat_oai_headers(t.key);
 		let resp;
 		try
 		{
@@ -28657,7 +28804,7 @@ Current version indicated by LITEVER below.
 				method: "POST",
 				headers: headers,
 				body: JSON.stringify({
-					model: localsettings.mschat_model,
+					model: t.model,
 					messages: [{ role: "system", content: system }, { role: "user", content: user }],
 					max_tokens: localsettings.mschat_maxtokens,
 					temperature: localsettings.mschat_temperature,
@@ -28817,9 +28964,10 @@ Current version indicated by LITEVER below.
 
 	function mschat_preview_out(user, label)
 	{
+		let t = mschat_target();
 		mschat_push("a", "─── would send ───\nendpoint: "
-			+ (localsettings.mschat_endpoint || "(none set)") + "/chat/completions\nmodel: "
-			+ (localsettings.mschat_model || "(none set)") + "\n~" + mschat_est_tokens(user).toLocaleString()
+			+ (t.url || "(none set)") + "\nmodel: "
+			+ (t.needmodel ? (t.model || "(none set)") : "(the one KoboldCpp serves)") + "\n~" + mschat_est_tokens(user).toLocaleString()
 			+ " prompt tokens\n\n" + user.substr(0, 3000) + (user.length > 3000 ? "\n…[truncated in this preview]" : ""),
 			label + " · nothing was sent");
 	}
@@ -34565,16 +34713,43 @@ Current version indicated by LITEVER below.
 		</div>
 		<div class="mschatconn hidden" id="mschatconn">
 			<div class="mschatconnrow">
-				<label for="mschat_endpoint">Endpoint</label>
-				<input type="text" id="mschat_endpoint" spellcheck="false" placeholder="https://api.openai.com/v1">
+				<label for="mschat_provider">Provider</label>
+				<select id="mschat_provider" title="Select the AI provider for questions" onchange="mschat_provider_change()">
+					<option value="1">KoboldAI Remote API</option>
+					<option value="2">OpenAI Compatible API</option>
+				</select>
+			</div>
+			<div id="mschat_kobold_box">
+				<div class="mschatconnrow">
+					<label for="mschat_kobold_endpoint">URL</label>
+					<input type="text" id="mschat_kobold_endpoint" spellcheck="false" placeholder="http://localhost:5001">
+				</div>
+				<div class="mschatconnrow">
+					<label for="mschat_kobold_key">API key</label>
+					<input type="password" id="mschat_kobold_key" spellcheck="false" placeholder="KoboldAI API Key (Optional)">
+				</div>
+			</div>
+			<div id="mschat_oai_box" class="hidden">
+				<div class="mschatconnrow">
+					<label for="mschat_endpoint">URL</label>
+					<input type="text" id="mschat_endpoint" spellcheck="false" placeholder="OpenAI API URL">
+				</div>
+				<div class="mschatconnrow">
+					<label for="mschat_key">API key</label>
+					<input type="password" id="mschat_key" spellcheck="false" placeholder="API Key (Required)">
+				</div>
+				<div class="mschatconnrow">
+					<label for="mschat_model">Model</label>
+					<select id="mschat_model" title="Model choice"></select>
+					<input type="text" id="mschat_model_custom" class="hidden" spellcheck="false" placeholder="Custom model name">
+					<button type="button" class="btn btn-primary mschatconnbtn" onclick="mschat_fetch_models()">Fetch</button>
+					<button type="button" class="btn btn-primary mschatconnbtn" onclick="mschat_custom_model()">Custom</button>
+				</div>
 			</div>
 			<div class="mschatconnrow">
-				<label for="mschat_key">API key</label>
-				<input type="password" id="mschat_key" spellcheck="false" placeholder="(blank for a local endpoint)">
-			</div>
-			<div class="mschatconnrow">
-				<label for="mschat_model">Model</label>
-				<input type="text" id="mschat_model" spellcheck="false" placeholder="gpt-4o-mini / a local model name">
+				<label></label>
+				<button type="button" class="btn btn-primary mschatconnbtn" onclick="mschat_connect()">Connect</button>
+				<span class="mschatconnnote" id="mschat_conninfo"></span>
 			</div>
 			<div class="mschatconnrow">
 				<label for="mschat_strategy">Long text</label>
