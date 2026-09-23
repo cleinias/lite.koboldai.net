@@ -3741,6 +3741,9 @@ Current version indicated by LITEVER below.
 	   OpenAI-compatible endpoint. A provider already selected stays selected. */
 	body.writerprofile #customapidropdown option:not([value="1"]):not([value="2"]) {
 		display: none;
+	}
+
+	/* ---------------------------------------------------------------------
 	   Manuscript chat pane (feat/manuscript-chat-panel)
 	   A floating, draggable, resizable window rather than a docked panel: the
 	   two side slots are already taken by Settings and Context in side-panel
@@ -29330,6 +29333,8 @@ Current version indicated by LITEVER below.
 			let live = (undisplayed_editing_text || "") + document.getElementById("gametext").innerText;
 			continuous_save_to_disk(live);
 		}, 1500);
+	}
+
 	//===================================================================
 	// Manuscript chat pane (feat/manuscript-chat-panel)
 	//
