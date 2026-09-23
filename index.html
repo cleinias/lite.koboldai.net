@@ -29063,9 +29063,16 @@ Current version indicated by LITEVER below.
 								throw new Error("Stopped after " + i + " of " + chunks.length + " passages.");
 							}
 							mschat_status("map " + (i + 1) + "/" + chunks.length + "… (Stop to cancel)");
-							let u = "MANUSCRIPT EXCERPT (" + (i + 1) + "/" + chunks.length + "):\n" + chunks[i]
+							//Each excerpt is told where it sits: consecutive, overlapping by a
+							//paragraph, and a scene may run over either edge. Without this a
+							//scene cut by a boundary is reported once per piece (a writer
+							//counting scenes got more from map-reduce than from the whole draft).
+							let u = "MANUSCRIPT EXCERPT " + (i + 1) + " of " + chunks.length + " (the excerpts are consecutive; "
+								+ "each may begin with the last paragraph of the one before):\n" + chunks[i]
 								+ "\n\n===\nQUESTION: " + question + "\nNote briefly what in THIS excerpt bears on the "
 								+ "question: facts, passages, or anything that would inform an answer or a judgment. "
+								+ "If something relevant seems to begin before this excerpt or to continue after it, say so "
+								+ "('continues from the previous excerpt' / 'continues into the next'). "
 								+ "If nothing in it bears on the question at all, reply exactly 'NONE'.";
 							try
 							{
@@ -29091,8 +29098,11 @@ Current version indicated by LITEVER below.
 								+ "the answer is partial]";
 						}
 						let u = "Per-excerpt findings for the question '" + question + "':\n\n" + joined
-							+ "\n\n===\nUsing these notes, answer the question in one coherent reply, without "
-							+ "repeating yourself. If it asks for your opinion or judgment, give it, with reasons.";
+							+ "\n\n===\nThese notes come from consecutive, slightly overlapping excerpts of one manuscript. "
+							+ "Something reported in adjacent excerpts, or marked as continuing from or into the next, is "
+							+ "usually ONE thing cut by an excerpt boundary: merge such reports before you count or list "
+							+ "anything. Then answer the question in one coherent reply, without repeating yourself. "
+							+ "If it asks for your opinion or judgment, give it, with reasons.";
 						mschat_push("a", await mschat_call(localsettings.mschat_system, u),
 							"map-reduce · " + chunks.length + " passages"
 							+ (failed.length ? " (" + failed.length + " failed)" : ""));
