@@ -28473,6 +28473,10 @@ Current version indicated by LITEVER below.
 		+ "when where why how all any some").split(" "));
 	const MSCHAT_WORD_RE = /[^\W\d_]+/gu;
 	let mschat_history = []; //[{role:"q"|"a"|"err", text, meta}]
+	//Every question asked, oldest first, each once. Kept apart from the transcript
+	//so that clearing the conversation does not throw away the questions: they
+	//are what a writer comes back to (after an edit, or with another model).
+	let mschat_questions = [];
 	let mschat_busy = false;
 	let mschat_hist_pos = -1; //-1 = not stepping through earlier questions
 	let mschat_hist_draft = ""; //what was in the box before stepping started
@@ -28763,22 +28767,20 @@ Current version indicated by LITEVER below.
 	//own store so it never travels inside a save file or a share link.
 	function mschat_persist()
 	{
-		try { indexeddb_save("mschat", JSON.stringify(mschat_history.slice(-60))); }
+		try { indexeddb_save("mschat", JSON.stringify({ log: mschat_history.slice(-60), questions: mschat_questions.slice(-100) })); }
 		catch (e) { /* a full or blocked store must not break the pane */ }
 	}
 
 	//The questions asked so far, oldest first, each once (at its latest asking).
 	function mschat_past_questions()
 	{
-		let out = [];
-		for (let m of mschat_history)
-		{
-			if (m.role != "q") { continue; }
-			let k = out.indexOf(m.text);
-			if (k >= 0) { out.splice(k, 1); }
-			out.push(m.text);
-		}
-		return out;
+		return mschat_questions.slice();
+	}
+	function mschat_remember_question(q)
+	{
+		let k = mschat_questions.indexOf(q);
+		if (k >= 0) { mschat_questions.splice(k, 1); }
+		mschat_questions.push(q);
 	}
 	function mschat_reask(i)
 	{
@@ -29029,6 +29031,7 @@ Current version indicated by LITEVER below.
 		{
 			box.value = "";
 			mschat_hist_pos = -1;
+			mschat_remember_question(question);
 			mschat_push("q", question);
 		}
 		mschat_busy = true;
@@ -29217,7 +29220,11 @@ Current version indicated by LITEVER below.
 				try
 				{
 					let h = JSON.parse(raw);
-					if (Array.isArray(h)) { mschat_history = h; mschat_render(); }
+					if (Array.isArray(h)) { h = { log: h }; } //the first version stored the transcript alone
+					if (h && Array.isArray(h.log)) { mschat_history = h.log; }
+					if (h && Array.isArray(h.questions)) { mschat_questions = h.questions; }
+					else { for (let m of mschat_history) { if (m.role == "q") { mschat_remember_question(m.text); } } }
+					mschat_render();
 				}
 				catch (e) { /* a corrupt transcript is simply an empty one */ }
 			});
@@ -34873,7 +34880,7 @@ Current version indicated by LITEVER below.
 			<div class="mschattitlebtns">
 				<span class="mschatstatus" id="mschatstatus"></span>
 				<button type="button" class="mschaticonbtn" id="mschat_btn_conn" title="Connection and context settings" onclick="mschat_toggle_conn()">&#9881;</button>
-				<button type="button" class="mschaticonbtn" title="Clear the conversation" onclick="mschat_clear()">&#128465;</button>
+				<button type="button" class="mschaticonbtn" title="Clear the conversation (earlier questions stay available with the Up arrow)" onclick="mschat_clear()">&#128465;</button>
 				<button type="button" class="mschaticonbtn" title="Close (F8)" onclick="mschat_show(false)">&#10005;</button>
 			</div>
 		</div>
