@@ -3561,6 +3561,148 @@ Current version indicated by LITEVER below.
 	.bolded {
 		font-weight: bold;
 	}
+
+	/* ---------------------------------------------------------------------
+	   Writing mode (feat/writing-focus-mode)
+	   A distraction-free skin for long-form prose in Story mode. Everything is
+	   scoped under body.writingmode so a single class toggles the whole look and
+	   nothing here can affect the default UI. Typography is driven by CSS custom
+	   properties set from the settings, so the panel writes one value and the
+	   stylesheet decides where it lands.
+	   --------------------------------------------------------------------- */
+	body.writingmode {
+		/* The measure is a LENGTH IN PX, computed as (measure in em x prose size) by
+		   apply_writing_mode. It must not be left in em: `em` inside a custom
+		   property resolves against whatever element ends up using it, so the prose
+		   column and the input column below it would silently disagree. */
+		--writing_measure: 646px;
+		--writing_fontsize: 19px;
+		--writing_lineheight: 1.7;
+		--writing_fontfamily: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+		--writing_indent: 0em;
+		--writing_paraspace: 1em;
+		--writing_typewriter_pad: 0px;
+	}
+	/* The prose: one clamped, centred measure, regardless of viewport width. */
+	body.writingmode #gametext {
+		font-family: var(--writing_fontfamily);
+		font-size: var(--writing_fontsize);
+		line-height: var(--writing_lineheight);
+		max-width: var(--writing_measure);
+		margin-left: auto;
+		margin-right: auto;
+		padding: 24px 16px var(--writing_typewriter_pad) 16px;
+		hyphens: auto;
+	}
+	body.writingmode #gametext p {
+		text-indent: var(--writing_indent);
+		margin: 0 0 var(--writing_paraspace) 0;
+	}
+	/* Paragraph-indent style: indents run on, so the leading one must not, and
+	   the blank line between paragraphs goes away (the indent is the signal). */
+	body.writingmode.writing_indented #gametext p:first-of-type { text-indent: 0; }
+	/* Strip the panel framing so the text sits on a page, not in a widget. */
+	body.writingmode .gamescreenbgnormal {
+		background-color: var(--theme_color_bg_outer);
+	}
+	body.writingmode #maineditbody { border: 0; }
+	/* Chrome that is noise while drafting. The top menu is not removed but
+	   parked: all but a 7px sliver slides off the top, and the sliver is its own
+	   hover target, so moving the pointer to the top edge brings the menu back
+	   with no extra element and no script. */
+	body.writingmode .topmenu {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 4;
+		transform: translateY(calc(-100% + 7px));
+		transition: transform .15s ease-out;
+		opacity: .97;
+	}
+	body.writingmode .topmenu:hover,
+	body.writingmode .topmenu:focus-within {
+		transform: translateY(0);
+	}
+	body.writingmode .lastreq,
+	body.writingmode #connectstatusdiv,
+	body.writingmode #token-budget,
+	body.writingmode #btn_addmedia,
+	body.writingmode #btnmode_chat,
+	body.writingmode #btn_actbranch { display: none; }
+	/* What is left of the action row is legible but quiet until wanted. */
+	body.writingmode #actionmenu {
+		opacity: .25;
+		transition: opacity .15s ease-out;
+	}
+	body.writingmode #actionmenu:hover,
+	body.writingmode #actionmenu:focus-within { opacity: 1; }
+	/* Paper: a warm light page with dark ink, independent of the colour themes
+	   (invert_colors flips everything; this restyles only what prose needs). */
+	body.writingmode.writing_paper {
+		--theme_color_bg_outer: #f6f3ec;
+		--theme_color_bg_chat: #f6f3ec;
+		--theme_color_ai_msg_fg: #23201b;
+		--theme_color_fg: #3a352c;
+		--theme_color_fg_muted: #7c7466;
+		--theme_color_input_bg: #fffdf8;
+		--theme_color_input_fg: #23201b;
+		--theme_color_border: #d8d0bf;
+		/* Lite tints links and markdown with the theme's highlight colour, which is
+		   picked for a dark background and washes out on paper. Darken it. */
+		--theme_color_fg_highlight: #1d4f7c;
+	}
+	body.writingmode.writing_paper #gametext,
+	body.writingmode.writing_paper #input_text { color: var(--theme_color_ai_msg_fg); }
+	body.writingmode.writing_paper #input_text { background-color: var(--theme_color_input_bg); }
+	/* The input box and what is left of the action row share the prose column, so
+	   the whole screen reads as one centred page rather than a text block with
+	   controls stranded at the window edges. */
+	body.writingmode #inputrow,
+	body.writingmode #actionmenu {
+		max-width: var(--writing_measure);
+		margin-left: auto;
+		margin-right: auto;
+	}
+	body.writingmode #input_text {
+		font-family: var(--writing_fontfamily);
+		font-size: calc(var(--writing_fontsize) - 2px);
+		line-height: 1.45;
+	}
+
+	/* ---------------------------------------------------------------------
+	   Story-writer profile (feat/writing-focus-mode)
+	   Hides the parts of Lite a prose writer never opens — the media, voice,
+	   Horde-worker, multiplayer and adventure surfaces, and the cloud-provider
+	   menagerie — by CSS alone. Nothing is removed: every feature still exists
+	   and comes straight back when the setting is turned off, which is why this
+	   is a profile and not a strip.
+	   --------------------------------------------------------------------- */
+	body.writerprofile #xtts_container,
+	body.writerprofile #webbrowser_tts_container,
+	body.writerprofile #webcamcontainer,
+	body.writerprofile #transcribe_file_btn,
+	body.writerprofile #zoomedimgcontainer,
+	body.writerprofile #workercontainer,
+	body.writerprofile #workertable,
+	body.writerprofile #myownworkercontainer,
+	body.writerprofile #settingsmenumedia_tab,
+	body.writerprofile #topbtn_multiplayer_join,
+	body.writerprofile #topbtn_multiplayer_leave,
+	body.writerprofile #btnmode_adventure,
+	body.writerprofile #adventuresettingssection,
+	body.writerprofile #btn_addmedia,
+	body.writerprofile #btn_addmedia2,
+	body.writerprofile #btn_togglevoice,
+	body.writerprofile #btn_togglevoice2,
+	body.writerprofile #btn_toggletts,
+	body.writerprofile #btn_toggletts2 { display: none !important; }
+	/* Backends: keep the two a local-first writer actually uses — KoboldAI
+	   Remote API (how you reach a local KoboldCpp) and the generic
+	   OpenAI-compatible endpoint. A provider already selected stays selected. */
+	body.writerprofile #customapidropdown option:not([value="1"]):not([value="2"]) {
+		display: none;
+	}
 	</style>
 
 	<script id="third-party.min">
@@ -4559,6 +4701,19 @@ Current version indicated by LITEVER below.
 		import_tavern_prompt: true, //when opening character cards, prompt for chat or instruct mode
 		invert_colors: false,
 		sidepanel_mode: false,
+		//--- Writing mode (feat/writing-focus-mode) ---
+		//A distraction-free skin for long-form prose: quiet the chrome, clamp the
+		//measure, and hand the typography to the writer. All of it is CSS driven
+		//from these values, so nothing here changes how generation works.
+		writing_mode: false,
+		writing_serif: true, //prose in a serif face
+		writing_paper: false, //warm light page with dark ink
+		writing_indent: false, //indented paragraphs instead of blank-line separation
+		writing_typewriter: false, //pad the page bottom so the live line sits mid-screen
+		writing_fontsize: 19, //px
+		writing_lineheight: 1.7,
+		writing_measure: 34, //em, the clamped line length (~66 characters)
+		writer_profile: false, //hide the media/voice/horde/multiplayer/adventure surfaces
 		passed_ai_warning: false, //used to store AI safety panel acknowledgement state
 		entersubmit: (is_on_mobile()?false:true), //enter sends the prompt
 		darkmode: true,
@@ -5896,6 +6051,15 @@ Current version indicated by LITEVER below.
 	//invert colors
 	toggle_theme_colors();
 	toggle_sidepanel_mode();
+	apply_writing_mode(); //writing mode / story-writer profile (feat/writing-focus-mode)
+	//F9 toggles writing mode from anywhere, including from inside the text box —
+	//a writer should be able to clear the screen without hunting through menus.
+	document.addEventListener("keydown", function(ev) {
+		if (ev.key === "F9" && !ev.ctrlKey && !ev.altKey && !ev.metaKey && !ev.shiftKey) {
+			ev.preventDefault();
+			toggle_writing_mode();
+		}
+	});
 
 	//start the polling script for async generation status checking every Xs
 	setInterval(poll_pending_response, poll_interval_base_text);
@@ -11596,6 +11760,7 @@ Current version indicated by LITEVER below.
 			}
 			toggle_theme_colors();
 			toggle_sidepanel_mode();
+			apply_writing_mode(); //a loaded story may carry writing-mode settings
 			update_for_sidepanel();
 			render_gametext(save_after_loading);
 			if(!ignore_multiplayer_sync) //we don't want an infinite loop
@@ -16849,6 +17014,15 @@ Current version indicated by LITEVER below.
 		document.getElementById("invert_colors").checked = localsettings.invert_colors;
 		document.getElementById("colortheme").value = localsettings.colortheme;
 		document.getElementById("sidepanel_mode").checked = localsettings.sidepanel_mode;
+		document.getElementById("writing_mode").checked = localsettings.writing_mode;
+		document.getElementById("writing_serif").checked = localsettings.writing_serif;
+		document.getElementById("writing_paper").checked = localsettings.writing_paper;
+		document.getElementById("writing_indent").checked = localsettings.writing_indent;
+		document.getElementById("writing_typewriter").checked = localsettings.writing_typewriter;
+		document.getElementById("writing_fontsize").value = localsettings.writing_fontsize;
+		document.getElementById("writing_lineheight").value = localsettings.writing_lineheight;
+		document.getElementById("writing_measure").value = localsettings.writing_measure;
+		document.getElementById("writer_profile").checked = localsettings.writer_profile;
 		document.getElementById("trimsentences").checked = localsettings.trimsentences;
 		document.getElementById("trimwhitespace").checked = localsettings.trimwhitespace;
 		document.getElementById("compressnewlines").checked = localsettings.compressnewlines;
@@ -17612,6 +17786,60 @@ Current version indicated by LITEVER below.
 		document.getElementById("maincontainer").classList.toggle("retractright");
 	}
 
+	//--- Writing mode (feat/writing-focus-mode) ---
+	//Applies the writing skin. Everything is one body class plus a handful of CSS
+	//custom properties, so this function is the only place that touches the DOM
+	//and toggling it can never leave the normal UI half-restyled.
+	function apply_writing_mode()
+	{
+		let on = !!localsettings.writing_mode;
+		document.body.classList.toggle("writerprofile", !!localsettings.writer_profile);
+		document.body.classList.toggle("writingmode", on);
+		document.body.classList.toggle("writing_paper", on && !!localsettings.writing_paper);
+		document.body.classList.toggle("writing_indented", on && !!localsettings.writing_indent);
+		let st = document.body.style;
+		if(!on)
+		{
+			//hand every property back to the stylesheet
+			for(let p of ["--writing_measure","--writing_fontsize","--writing_lineheight",
+				"--writing_fontfamily","--writing_indent","--writing_paraspace",
+				"--writing_typewriter_pad"])
+			{
+				st.removeProperty(p);
+			}
+			return;
+		}
+		//The measure is given in em of the prose size, the way typographers state it
+		//(~34em is the classic 66-character line), but it is handed to CSS in px:
+		//an em inside a custom property is resolved by the element that uses it, so
+		//the story and the input box would otherwise be clamped to different widths.
+		let fontsize = parseFloat(localsettings.writing_fontsize) || 19;
+		let measure_em = parseFloat(localsettings.writing_measure) || 34;
+		st.setProperty("--writing_measure", (measure_em * fontsize) + "px");
+		st.setProperty("--writing_fontsize", fontsize + "px");
+		st.setProperty("--writing_lineheight", (parseFloat(localsettings.writing_lineheight)||1.7));
+		st.setProperty("--writing_fontfamily", localsettings.writing_serif
+			? 'Georgia, "Iowan Old Style", "Palatino Linotype", serif'
+			: 'system-ui, "Segoe UI", Roboto, sans-serif');
+		//Indented paragraphs are the printed-prose convention: an em of indent and
+		//no blank line. Otherwise keep the web convention (space, no indent).
+		st.setProperty("--writing_indent", localsettings.writing_indent ? "1.3em" : "0em");
+		st.setProperty("--writing_paraspace", localsettings.writing_indent ? "0em" : "1em");
+		//"Typewriter" without fighting Lite's autoscroll: padding the bottom of the
+		//page is what actually lets the line being written sit near the middle.
+		st.setProperty("--writing_typewriter_pad", localsettings.writing_typewriter ? "45vh" : "24px");
+	}
+
+	//Toggle from the settings button or the F9 hotkey. Keeps the checkbox, the
+	//stored setting and the skin in agreement whichever way it was flipped.
+	function toggle_writing_mode(newval)
+	{
+		localsettings.writing_mode = (newval===undefined) ? !localsettings.writing_mode : !!newval;
+		let cb = document.getElementById("writing_mode");
+		if(cb) { cb.checked = localsettings.writing_mode; }
+		apply_writing_mode();
+	}
+
 	function toggle_theme_colors()
 	{
 		if(localsettings.invert_colors)
@@ -17801,6 +18029,15 @@ Current version indicated by LITEVER below.
 		localsettings.invert_colors = (document.getElementById("invert_colors").checked ? true : false);
 		localsettings.colortheme = parseInt(document.getElementById("colortheme").value);
 		localsettings.sidepanel_mode = (document.getElementById("sidepanel_mode").checked ? true : false);
+		localsettings.writing_mode = (document.getElementById("writing_mode").checked ? true : false);
+		localsettings.writing_serif = (document.getElementById("writing_serif").checked ? true : false);
+		localsettings.writing_paper = (document.getElementById("writing_paper").checked ? true : false);
+		localsettings.writing_indent = (document.getElementById("writing_indent").checked ? true : false);
+		localsettings.writing_typewriter = (document.getElementById("writing_typewriter").checked ? true : false);
+		localsettings.writing_fontsize = (parseFloat(document.getElementById("writing_fontsize").value) || 19);
+		localsettings.writing_lineheight = (parseFloat(document.getElementById("writing_lineheight").value) || 1.7);
+		localsettings.writing_measure = (parseFloat(document.getElementById("writing_measure").value) || 34);
+		localsettings.writer_profile = (document.getElementById("writer_profile").checked ? true : false);
 		localsettings.trimsentences = (document.getElementById("trimsentences").checked ? true : false);
 		localsettings.trimwhitespace = (document.getElementById("trimwhitespace").checked ? true : false);
 		localsettings.compressnewlines = (document.getElementById("compressnewlines").checked ? true : false);
@@ -18095,6 +18332,7 @@ Current version indicated by LITEVER below.
 		localsettings.token_count_multiplier = cleannum(localsettings.token_count_multiplier, 70, 130);
 		toggle_theme_colors();
 		toggle_sidepanel_mode();
+		apply_writing_mode();
 
 		localsettings.voice_typing_mode = document.getElementById("voice_typing_mode").value;
 		if(localsettings.voice_typing_mode>0 && is_using_kcpp_with_whisper())
@@ -31838,6 +32076,53 @@ Current version indicated by LITEVER below.
 							<div class="justifyleft">Side panel mode <span class="helpicon">?<span
 								class="helptext">Displays the settings and context panels permanently on the sides, instead of as popups. Not available on Mobile displays.</span></span></div>
 							<input title="Inverted Colors" type="checkbox" id="sidepanel_mode" class="push-right">
+						</div>
+						<!-- Writing mode (feat/writing-focus-mode) -->
+						<h3 style="margin-top: 10px;">Writing Mode</h3>
+						<div class="settinglabel">
+							<div class="justifyleft">Writing mode <span class="helpicon">?<span
+								class="helptext">A distraction-free skin for drafting prose: parks the top menu (it slides back when you move the pointer to the top of the window), dims the action row until you reach for it, hides the status and request lines, and sets the prose on one clamped, centred measure. Toggle any time with F9. Changes nothing about generation.</span></span></div>
+							<input title="Writing Mode" type="checkbox" id="writing_mode" class="push-right">
+						</div>
+						<div class="settinglabel">
+							<div class="justifyleft">Serif prose <span class="helpicon">?<span
+								class="helptext">Sets the story in a serif face instead of the interface sans.</span></span></div>
+							<input title="Serif Prose" type="checkbox" id="writing_serif" class="push-right">
+						</div>
+						<div class="settinglabel">
+							<div class="justifyleft">Paper colors <span class="helpicon">?<span
+								class="helptext">A warm off-white page with dark ink, for writing mode only. Unlike Inverted colors it restyles just the writing surface, so your chosen theme is untouched elsewhere.</span></span></div>
+							<input title="Paper Colors" type="checkbox" id="writing_paper" class="push-right">
+						</div>
+						<div class="settinglabel">
+							<div class="justifyleft">Indented paragraphs <span class="helpicon">?<span
+								class="helptext">Printed-prose convention: indent each paragraph after the first and drop the blank line between them. Off = the web convention (blank line, no indent).</span></span></div>
+							<input title="Indented Paragraphs" type="checkbox" id="writing_indent" class="push-right">
+						</div>
+						<div class="settinglabel">
+							<div class="justifyleft">Keep the live line mid-screen <span class="helpicon">?<span
+								class="helptext">Typewriter-style: pads the bottom of the page so the line you are writing settles near the middle of the window instead of the bottom edge.</span></span></div>
+							<input title="Keep The Live Line Mid-Screen" type="checkbox" id="writing_typewriter" class="push-right">
+						</div>
+						<div class="settinglabel">
+							<div class="justifyleft">Prose text size <span class="helpicon">?<span
+								class="helptext">Font size of the story in writing mode, in pixels (default 19).</span></span></div>
+							<input class="push-right" title="Prose Text Size" type="number" min="10" max="48" step="1" style="width:70px;" id="writing_fontsize">
+						</div>
+						<div class="settinglabel">
+							<div class="justifyleft">Prose line spacing <span class="helpicon">?<span
+								class="helptext">Line height of the story in writing mode (default 1.7).</span></span></div>
+							<input class="push-right" title="Prose Line Spacing" type="number" min="1" max="3" step="0.05" style="width:70px;" id="writing_lineheight">
+						</div>
+						<div class="settinglabel">
+							<div class="justifyleft">Prose measure (em) <span class="helpicon">?<span
+								class="helptext">The clamped line length of the story in writing mode, in em. 34em is roughly 66 characters, the readable measure typography settled on; raise it for a wider column.</span></span></div>
+							<input class="push-right" title="Prose Measure" type="number" min="16" max="80" step="1" style="width:70px;" id="writing_measure">
+						</div>
+						<div class="settinglabel">
+							<div class="justifyleft">Story-writer profile <span class="helpicon">?<span
+								class="helptext">Hides what a prose writer never opens: the media and voice panels, the Horde worker tables, multiplayer, adventure mode, and every backend except KoboldAI Remote (local KoboldCpp) and the generic OpenAI-compatible endpoint. Nothing is removed — untick to get it all back. A provider you had already selected stays selected.</span></span></div>
+							<input title="Story-Writer Profile" type="checkbox" id="writer_profile" class="push-right">
 						</div>
 						<div id="classicmodeoptions" class="hidden">
 							<div class="settinglabel">
