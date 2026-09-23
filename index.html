@@ -3561,6 +3561,190 @@ Current version indicated by LITEVER below.
 	.bolded {
 		font-weight: bold;
 	}
+
+	/* ---------------------------------------------------------------------
+	   Manuscript chat pane (feat/manuscript-chat-panel)
+	   A floating, draggable, resizable window rather than a docked panel: the
+	   two side slots are already taken by Settings and Context in side-panel
+	   mode, and a window can be parked wherever the writer is not looking.
+	   Colours come from the theme variables, so it follows the chosen theme
+	   and the writing-mode paper palette alike.
+	   --------------------------------------------------------------------- */
+	.mschatwindow {
+		position: fixed;
+		z-index: 5;
+		display: flex;
+		flex-direction: column;
+		width: 380px;
+		height: 520px;
+		min-width: 280px;
+		min-height: 220px;
+		right: 18px;
+		bottom: 18px;
+		background-color: var(--theme_color_bg_popups);
+		color: var(--theme_color_fg);
+		border: 1px solid var(--theme_color_border);
+		border-radius: 8px;
+		box-shadow: 0 6px 28px rgba(0,0,0,.45);
+		font-size: 13px;
+		overflow: hidden;
+	}
+	.mschattitlebar {
+		display: flex;
+		align-items: center;
+		padding: 5px 6px 5px 10px;
+		background-color: var(--theme_color_accent_bg);
+		cursor: move;
+		user-select: none;
+		flex: 0 0 auto;
+	}
+	.mschattitletext { font-weight: bold; font-size: 13px; flex: 1 1 auto; }
+	.mschattitlebtns { display: flex; align-items: center; gap: 2px; }
+	.mschatstatus {
+		font-size: 10.5px;
+		color: var(--theme_color_accent_fg);
+		opacity: .8;
+		margin-right: 6px;
+		max-width: 150px;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	.mschaticonbtn {
+		background: none;
+		border: 0;
+		color: var(--theme_color_accent_fg);
+		cursor: pointer;
+		font-size: 13px;
+		padding: 1px 5px;
+		border-radius: 4px;
+	}
+	.mschaticonbtn:hover { background-color: var(--theme_color_accent_bg_highlight); }
+	.mschatconn {
+		flex: 0 0 auto;
+		padding: 7px 9px;
+		border-bottom: 1px solid var(--theme_color_border);
+		background-color: var(--theme_color_bg_muted);
+		max-height: 55%;
+		overflow-y: auto;
+	}
+	.mschatconnrow { display: flex; align-items: center; margin-bottom: 4px; gap: 5px; }
+	.mschatconnrow label { flex: 0 0 88px; font-size: 11px; margin: 0; }
+	.mschatconnrow input[type="text"],
+	.mschatconnrow input[type="password"],
+	.mschatconnrow select,
+	.mschatconnrow textarea {
+		flex: 1 1 auto;
+		min-width: 0;
+		font-size: 11.5px;
+		padding: 2px 4px;
+		background-color: var(--theme_color_input_bg);
+		color: var(--theme_color_input_fg);
+		border: 1px solid var(--theme_color_border);
+		border-radius: 3px;
+	}
+	.mschatconnrow input[type="number"] {
+		flex: 1 1 0;
+		min-width: 0;
+		font-size: 11.5px;
+		padding: 2px 4px;
+		background-color: var(--theme_color_input_bg);
+		color: var(--theme_color_input_fg);
+		border: 1px solid var(--theme_color_border);
+		border-radius: 3px;
+	}
+	.mschatconnrow textarea { resize: vertical; line-height: 1.25; }
+	.mschatconnnote { display: block; font-size: 10px; color: var(--theme_color_fg_muted); line-height: 1.3; }
+	.mschatlog {
+		flex: 1 1 auto;
+		overflow-y: auto;
+		padding: 8px 9px;
+		overflow-wrap: break-word;
+	}
+	.mschatmsg { margin-bottom: 9px; line-height: 1.45; white-space: pre-wrap; }
+	.mschatmsg .mschatwho {
+		display: block;
+		font-size: 10px;
+		letter-spacing: .06em;
+		text-transform: uppercase;
+		color: var(--theme_color_fg_muted);
+		margin-bottom: 2px;
+	}
+	.mschatmsg.q { color: var(--theme_color_fg_highlight); }
+	.mschatmsg.err { color: #e08b8b; }
+	.mschatmsg .mschatmeta { font-size: 10px; color: var(--theme_color_fg_muted); }
+	.mschatinputrow {
+		flex: 0 0 auto;
+		display: flex;
+		gap: 4px;
+		padding: 6px;
+		border-top: 1px solid var(--theme_color_border);
+	}
+	.mschatinputrow textarea {
+		flex: 1 1 auto;
+		min-width: 0;
+		resize: none;
+		font-size: 12.5px;
+		padding: 4px;
+		background-color: var(--theme_color_input_bg);
+		color: var(--theme_color_input_fg);
+		border: 1px solid var(--theme_color_border);
+		border-radius: 4px;
+	}
+	.mschatsendcol { display: flex; flex-direction: column; gap: 2px; }
+	.mschatsendbtn { padding: 3px 10px; font-size: 12px; }
+	.mschatpreviewbtn {
+		font-size: 9.5px;
+		padding: 1px 4px;
+		background: none;
+		border: 1px solid var(--theme_color_border);
+		border-radius: 3px;
+		color: var(--theme_color_fg_muted);
+		cursor: pointer;
+	}
+	.mschatpreviewbtn:hover { color: var(--theme_color_fg); }
+	.mschatresize {
+		position: absolute;
+		right: 0;
+		bottom: 0;
+		width: 15px;
+		height: 15px;
+		cursor: nwse-resize;
+	}
+	.mschatresize::after {
+		content: "";
+		position: absolute;
+		right: 3px;
+		bottom: 3px;
+		width: 7px;
+		height: 7px;
+		border-right: 2px solid var(--theme_color_fg_muted);
+		border-bottom: 2px solid var(--theme_color_fg_muted);
+		opacity: .7;
+	}
+	/* The edge tab that reopens the window — always reachable, including when
+	   writing mode has parked the top menu. */
+	.mschattab {
+		position: fixed;
+		right: 0;
+		bottom: 90px;
+		z-index: 4;
+		writing-mode: vertical-rl;
+		padding: 10px 3px;
+		font-size: 10px;
+		letter-spacing: .12em;
+		background-color: var(--theme_color_accent_bg);
+		color: var(--theme_color_accent_fg);
+		border: 1px solid var(--theme_color_border);
+		border-right: 0;
+		border-radius: 5px 0 0 5px;
+		cursor: pointer;
+		opacity: .55;
+	}
+	.mschattab:hover { opacity: 1; }
+	@media (max-width: 600px) {
+		.mschatwindow { width: calc(100vw - 20px); height: 70vh; right: 10px; bottom: 10px; }
+	}
 	</style>
 
 	<script id="third-party.min">
@@ -4559,6 +4743,20 @@ Current version indicated by LITEVER below.
 		import_tavern_prompt: true, //when opening character cards, prompt for chat or instruct mode
 		invert_colors: false,
 		sidepanel_mode: false,
+		//--- Manuscript chat pane (feat/manuscript-chat-panel) ---
+		//Its own connection on purpose: the prose can stay with a small local
+		//model while the questions about the prose go to a large one.
+		mschat_open: false,
+		mschat_endpoint: "", //e.g. https://api.openai.com/v1 or http://localhost:5001/v1
+		saved_mschat_key: "", //redacted out of saved and shared stories, like every other key
+		mschat_model: "",
+		mschat_temperature: 0.3,
+		mschat_maxtokens: 700,
+		mschat_context: 16384, //the QUESTION model's context window, not the story model's
+		mschat_strategy: 0, //0=auto, 1=stuff, 2=retrieve, 3=map-reduce
+		mschat_include_memory: false, //also send Memory / Author's Note / World Info
+		mschat_system: "You answer a writer's questions about their own manuscript. Use ONLY the manuscript text provided. Quote or cite the relevant passage when useful. If the answer is not in the provided text, say so plainly rather than inventing it.",
+		mschat_geom: "", //"left,top,width,height" of the floating window
 		passed_ai_warning: false, //used to store AI safety panel acknowledgement state
 		entersubmit: (is_on_mobile()?false:true), //enter sends the prompt
 		darkmode: true,
@@ -5896,6 +6094,7 @@ Current version indicated by LITEVER below.
 	//invert colors
 	toggle_theme_colors();
 	toggle_sidepanel_mode();
+	mschat_init_window(); //manuscript chat pane (feat/manuscript-chat-panel)
 
 	//start the polling script for async generation status checking every Xs
 	setInterval(poll_pending_response, poll_interval_base_text);
@@ -11049,6 +11248,7 @@ Current version indicated by LITEVER below.
 			//redact some values
 			new_save_storyobj.savedsettings.my_api_key = "0000000000";
 			new_save_storyobj.savedsettings.saved_oai_key = "";
+			new_save_storyobj.savedsettings.saved_mschat_key = ""; //feat/manuscript-chat-panel
 			new_save_storyobj.savedsettings.saved_oai_addr = "";
 			new_save_storyobj.savedsettings.saved_dalle_key = "";
 			new_save_storyobj.savedsettings.saved_dalle_url = "";
@@ -28224,6 +28424,564 @@ Current version indicated by LITEVER below.
 		}
 	}
 
+	//===================================================================
+	// Manuscript chat pane (feat/manuscript-chat-panel)
+	//
+	// Asking a model ABOUT the draft is a different act from asking it to
+	// continue the draft, and story mode has no channel for it: you either flip
+	// into instruct mode and undo the exchange afterwards, or paste the draft
+	// into a second window. This is that channel, with two rules.
+	//
+	// 1. It NEVER writes to the story buffer. It reads concat_gametext() and
+	//    keeps its transcript entirely to itself, so a question can't end up
+	//    in the manuscript.
+	// 2. It has its OWN endpoint, key and model, kept apart from the story
+	//    connection. Answering questions about a draft is a capability task and
+	//    steering prose is not, so the sensible pairing is a small local model
+	//    writing and a large one answering — which means two live connections.
+	//
+	// Long manuscripts are handled the way scripts/ask_manuscript.py handles
+	// them: stuff / retrieve / map-reduce, with lexical ranking only (no
+	// embeddings — Lite ships no dependencies).
+	//===================================================================
+	const MSCHAT_SYSTEM_DEFAULT = "You answer a writer's questions about their own manuscript. "
+		+ "Use ONLY the manuscript text provided. Quote or cite the relevant passage when useful. "
+		+ "If the answer is not in the provided text, say so plainly rather than inventing it.";
+	//Chars per token for the size estimates. 3.5 is deliberately conservative:
+	//overshooting means a 400 from strict servers, or silent front-truncation.
+	const MSCHAT_CPT = 3.5;
+	const MSCHAT_OVERHEAD_TOKENS = 250; //system prompt + question + framing
+	const MSCHAT_STOP = new Set(("the a an and or but of to in on at for with is are was were be been "
+		+ "it its this that these those he she they i you we him her them his "
+		+ "their our your as by from not no do does did has have had will would "
+		+ "can could may might so if then than there here what which who whom "
+		+ "when where why how all any some").split(" "));
+	const MSCHAT_WORD_RE = /[^\W\d_]+/gu;
+	let mschat_history = []; //[{role:"q"|"a"|"err", text, meta}]
+	let mschat_busy = false;
+
+	function mschat_show(show)
+	{
+		localsettings.mschat_open = !!show;
+		document.getElementById("mschatwindow").classList.toggle("hidden", !show);
+		//The tab is the way back in, so it appears exactly when the window does not.
+		document.getElementById("mschattab").classList.toggle("hidden", !!show);
+		if (show)
+		{
+			mschat_load_fields();
+			mschat_render();
+			document.getElementById("mschat_input").focus();
+		}
+		else
+		{
+			mschat_save_fields();
+		}
+	}
+
+	function mschat_toggle_conn()
+	{
+		let c = document.getElementById("mschatconn");
+		c.classList.toggle("hidden");
+		if (c.classList.contains("hidden")) { mschat_save_fields(); }
+	}
+
+	//The pane's fields are read and written on open/close and around each ask,
+	//rather than through the Settings panel: it is its own window, and a writer
+	//should be able to repoint it mid-session without opening Settings.
+	function mschat_load_fields()
+	{
+		document.getElementById("mschat_endpoint").value = localsettings.mschat_endpoint;
+		document.getElementById("mschat_key").value = localsettings.saved_mschat_key;
+		document.getElementById("mschat_model").value = localsettings.mschat_model;
+		document.getElementById("mschat_strategy").value = localsettings.mschat_strategy;
+		document.getElementById("mschat_context").value = localsettings.mschat_context;
+		document.getElementById("mschat_maxtokens").value = localsettings.mschat_maxtokens;
+		document.getElementById("mschat_temperature").value = localsettings.mschat_temperature;
+		document.getElementById("mschat_include_memory").checked = localsettings.mschat_include_memory;
+		document.getElementById("mschat_system").value = localsettings.mschat_system;
+	}
+
+	function mschat_save_fields()
+	{
+		if (!document.getElementById("mschat_endpoint")) { return; }
+		localsettings.mschat_endpoint = document.getElementById("mschat_endpoint").value.trim();
+		localsettings.saved_mschat_key = document.getElementById("mschat_key").value.trim();
+		localsettings.mschat_model = document.getElementById("mschat_model").value.trim();
+		localsettings.mschat_strategy = parseInt(document.getElementById("mschat_strategy").value) || 0;
+		localsettings.mschat_context = parseInt(document.getElementById("mschat_context").value) || 16384;
+		localsettings.mschat_maxtokens = parseInt(document.getElementById("mschat_maxtokens").value) || 700;
+		let t = parseFloat(document.getElementById("mschat_temperature").value);
+		localsettings.mschat_temperature = isNaN(t) ? 0.3 : t;
+		localsettings.mschat_include_memory = document.getElementById("mschat_include_memory").checked ? true : false;
+		localsettings.mschat_system = document.getElementById("mschat_system").value;
+	}
+
+	function mschat_status(txt)
+	{
+		document.getElementById("mschatstatus").innerText = txt || "";
+	}
+
+	function mschat_render()
+	{
+		let log = document.getElementById("mschatlog");
+		if (!mschat_history.length)
+		{
+			log.innerHTML = '<div class="mschatmsg"><span class="mschatmeta">'
+				+ 'Questions about the draft are answered here and never enter the story. '
+				+ 'Set the endpoint, key and model with the gear button — they are this pane\'s own, '
+				+ 'not the story\'s.</span></div>';
+			return;
+		}
+		let html = "";
+		for (let m of mschat_history)
+		{
+			let who = (m.role == "q") ? "You" : (m.role == "err" ? "Error" : "Model");
+			html += '<div class="mschatmsg ' + m.role + '"><span class="mschatwho">' + who + '</span>'
+				+ escape_html(m.text)
+				+ (m.meta ? '<span class="mschatmeta">\n' + escape_html(m.meta) + '</span>' : '')
+				+ '</div>';
+		}
+		log.innerHTML = html;
+		log.scrollTop = log.scrollHeight;
+	}
+
+	function mschat_push(role, text, meta)
+	{
+		mschat_history.push({ role: role, text: text, meta: meta || "" });
+		mschat_render();
+		mschat_persist();
+	}
+
+	function mschat_clear()
+	{
+		mschat_history = [];
+		mschat_render();
+		mschat_persist();
+		mschat_status("");
+	}
+
+	//The transcript is working notes, not part of the story: it is kept in its
+	//own store so it never travels inside a save file or a share link.
+	function mschat_persist()
+	{
+		try { indexeddb_save("mschat", JSON.stringify(mschat_history.slice(-60))); }
+		catch (e) { /* a full or blocked store must not break the pane */ }
+	}
+
+	function mschat_handle_typing(event)
+	{
+		if (event.key === "Enter" && !event.shiftKey)
+		{
+			event.preventDefault();
+			mschat_ask();
+			return false;
+		}
+		return true;
+	}
+
+	//--- the manuscript itself ---------------------------------------------
+	function mschat_manuscript()
+	{
+		let story = concat_gametext(true, ""); //the same read the disk mirror uses
+		if (!localsettings.mschat_include_memory) { return story; }
+		//Optional: the setup the prose alone does not state. Questions about the
+		//cast ("did I already introduce the clockmaker?") often need it.
+		let pre = "";
+		if (typeof current_memory !== "undefined" && current_memory) { pre += "MEMORY:\n" + current_memory + "\n\n"; }
+		if (typeof current_anote !== "undefined" && current_anote) { pre += "AUTHOR'S NOTE:\n" + current_anote + "\n\n"; }
+		if (typeof current_wi !== "undefined" && current_wi && current_wi.length)
+		{
+			let wi = current_wi.filter(e => e && e.content).map(e => "- " + (e.key || "(no key)") + ": " + e.content);
+			if (wi.length) { pre += "WORLD INFO:\n" + wi.join("\n") + "\n\n"; }
+		}
+		return pre ? pre + "MANUSCRIPT:\n" + story : story;
+	}
+
+	function mschat_est_tokens(text) { return Math.ceil(text.length / MSCHAT_CPT); }
+
+	//--- chunking (ported from ask_manuscript.py) --------------------------
+	//Splitting on blank lines alone is not enough: a draft written with single
+	//newlines, or one wall of text, would come out as a single chunk and defeat
+	//both retrieve and map-reduce. So an oversize paragraph is bounded further,
+	//by lines, then by sentences, then by a hard character cut.
+	function mschat_split_long(para, chunk_chars)
+	{
+		if (para.length <= chunk_chars) { return [para]; }
+		let splitters = [s => s.split("\n"), s => s.split(/(?<=[.!?…»"'”’])\s+/)];
+		for (let split of splitters)
+		{
+			let parts = split(para).map(p => p.trim()).filter(p => p);
+			if (parts.length > 1)
+			{
+				let out = [], cur = "";
+				for (let p of parts)
+				{
+					if (cur && cur.length + 1 + p.length > chunk_chars) { out.push(cur); cur = p; }
+					else { cur = cur ? (cur + " " + p) : p; }
+				}
+				if (cur) { out.push(cur); }
+				//recurse: one sentence or line may itself still be too long
+				let res = [];
+				for (let piece of out) { res = res.concat(mschat_split_long(piece, chunk_chars)); }
+				return res;
+			}
+		}
+		let hard = [];
+		for (let i = 0; i < para.length; i += chunk_chars) { hard.push(para.substr(i, chunk_chars)); }
+		return hard;
+	}
+
+	function mschat_chunk(text, chunk_chars)
+	{
+		let paras = [];
+		for (let p of text.split(/\n\s*\n/))
+		{
+			p = p.trim();
+			if (p) { paras = paras.concat(mschat_split_long(p, chunk_chars)); }
+		}
+		let chunks = [], cur = [], size = 0;
+		for (let p of paras)
+		{
+			if (cur.length && size + p.length > chunk_chars)
+			{
+				chunks.push(cur.join("\n\n"));
+				//carry one paragraph of overlap, but only a small one: an oversize
+				//carry-over would duplicate whole chunks across the map step
+				cur = cur.slice(-1).filter(x => x.length <= chunk_chars / 2);
+				size = cur.reduce((a, x) => a + x.length, 0);
+			}
+			cur.push(p);
+			size += p.length;
+		}
+		if (cur.length) { chunks.push(cur.join("\n\n")); }
+		return chunks;
+	}
+
+	function mschat_tok(s)
+	{
+		let out = [];
+		for (let m of s.toLowerCase().matchAll(MSCHAT_WORD_RE))
+		{
+			if (!MSCHAT_STOP.has(m[0])) { out.push(m[0]); }
+		}
+		return out;
+	}
+
+	//TF-IDF-ish overlap of each chunk with the question. Lexical on purpose:
+	//an embedding model would be a dependency, and for "where did I mention the
+	//clockmaker" the words themselves are the signal.
+	function mschat_rank_lexical(question, chunks)
+	{
+		let q = new Set(mschat_tok(question));
+		let all = chunks.map((c, i) => i);
+		if (!q.size) { return all; }
+		let toks = chunks.map(c => mschat_tok(c));
+		let df = {};
+		for (let t of toks)
+		{
+			for (let w of new Set(t)) { if (q.has(w)) { df[w] = (df[w] || 0) + 1; } }
+		}
+		let n = chunks.length;
+		let scored = toks.map((t, i) => {
+			let tf = {};
+			for (let w of t) { tf[w] = (tf[w] || 0) + 1; }
+			let s = 0;
+			for (let w of q) { s += (tf[w] || 0) * Math.log((n + 1) / ((df[w] || 0) + 0.5)); }
+			return [s, i];
+		});
+		scored.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+		let hits = scored.filter(x => x[0] > 0).map(x => x[1]);
+		return hits.length ? hits : all;
+	}
+
+	function mschat_select(order, chunks, budget_chars)
+	{
+		let picked = [], size = 0;
+		for (let i of order)
+		{
+			if (size + chunks[i].length > budget_chars && picked.length) { break; }
+			picked.push(i);
+			size += chunks[i].length;
+		}
+		return picked.sort((a, b) => a - b); //keep manuscript order in the prompt
+	}
+
+	//--- the request -------------------------------------------------------
+	//Its own fetch, deliberately: Lite's generate path carries story state,
+	//samplers and the active connection, none of which this should touch.
+	async function mschat_call(system, user)
+	{
+		let base = localsettings.mschat_endpoint.replace(/\/+$/, "");
+		if (!base) { throw new Error("No endpoint set. Open the gear button and give this pane an endpoint (e.g. https://api.openai.com/v1 or http://localhost:5001/v1)."); }
+		if (!localsettings.mschat_model) { throw new Error("No model set for this pane."); }
+		let url = base + (base.endsWith("/chat/completions") ? "" : "/chat/completions");
+		let headers = { "Content-Type": "application/json" };
+		if (localsettings.saved_mschat_key) { headers["Authorization"] = "Bearer " + localsettings.saved_mschat_key; }
+		let resp;
+		try
+		{
+			resp = await fetch(url, {
+				method: "POST",
+				headers: headers,
+				body: JSON.stringify({
+					model: localsettings.mschat_model,
+					messages: [{ role: "system", content: system }, { role: "user", content: user }],
+					max_tokens: localsettings.mschat_maxtokens,
+					temperature: localsettings.mschat_temperature,
+					stream: false
+				})
+			});
+		}
+		catch (e)
+		{
+			//A browser reports CORS and connection refused the same opaque way,
+			//so name both possibilities instead of guessing.
+			throw new Error("Could not reach " + url + " — the endpoint is down, or it did not send the "
+				+ "CORS headers a browser needs (" + e.message + ").");
+		}
+		let raw = await resp.text();
+		let data = null;
+		try { data = JSON.parse(raw); } catch (e) { /* fall through to the raw text */ }
+		if (!resp.ok)
+		{
+			let msg = (data && data.error && (data.error.message || data.error.type)) || raw.substr(0, 300);
+			throw new Error("HTTP " + resp.status + ": " + msg);
+		}
+		if (!data) { throw new Error("The endpoint did not return JSON: " + raw.substr(0, 200)); }
+		if (data.error) { throw new Error(data.error.message || JSON.stringify(data.error).substr(0, 200)); }
+		let c = data.choices && data.choices[0];
+		let txt = c && ((c.message && c.message.content) || c.text);
+		if (!txt) { throw new Error("The endpoint returned no message content: " + raw.substr(0, 200)); }
+		return txt.trim();
+	}
+
+	//--- the ask -----------------------------------------------------------
+	async function mschat_ask(preview)
+	{
+		if (mschat_busy) { return; }
+		mschat_save_fields();
+		let box = document.getElementById("mschat_input");
+		let question = box.value.trim();
+		if (!question) { return; }
+		let text = mschat_manuscript();
+		if (!text.trim())
+		{
+			mschat_push("err", "There is no manuscript yet — write something first.");
+			return;
+		}
+
+		//What is left for manuscript text once the answer and framing are reserved.
+		let budget_tok = localsettings.mschat_context - localsettings.mschat_maxtokens - MSCHAT_OVERHEAD_TOKENS;
+		if (budget_tok <= 0)
+		{
+			mschat_push("err", "A reply of " + localsettings.mschat_maxtokens + " tokens leaves no room in a "
+				+ localsettings.mschat_context + "-token context for the manuscript. Raise the context or lower the reply.");
+			return;
+		}
+		let fits = mschat_est_tokens(text) <= budget_tok;
+		let mode = parseInt(localsettings.mschat_strategy) || 0;
+		if (mode === 0) { mode = fits ? 1 : 2; } //auto
+
+		if (!preview)
+		{
+			box.value = "";
+			mschat_push("q", question);
+		}
+		mschat_busy = true;
+		document.getElementById("mschat_send").disabled = true;
+		mschat_status(preview ? "preview…" : "asking…");
+		try
+		{
+			if (mode === 1) //stuff
+			{
+				if (!fits)
+				{
+					throw new Error("The draft (~" + mschat_est_tokens(text).toLocaleString() + " tokens) does not fit the "
+						+ budget_tok.toLocaleString() + "-token budget. Choose Retrieve or Map-reduce, or raise the context.");
+				}
+				let user = "MANUSCRIPT:\n" + text + "\n\n===\nQUESTION: " + question;
+				if (preview) { mschat_preview_out(user, "stuff — the whole draft"); }
+				else { mschat_push("a", await mschat_call(localsettings.mschat_system, user), "stuff · whole draft (~" + mschat_est_tokens(text).toLocaleString() + " tok)"); }
+			}
+			else
+			{
+				//chunk_chars: quarter of the budget, so retrieve can pick several
+				//passages and map-reduce has more than one thing to reduce.
+				let chunk_chars = Math.max(1200, Math.floor(budget_tok * MSCHAT_CPT / 4));
+				let chunks = mschat_chunk(text, chunk_chars);
+				let order = mschat_rank_lexical(question, chunks);
+
+				if (mode === 2) //retrieve
+				{
+					let picked = mschat_select(order, chunks, Math.floor(budget_tok * MSCHAT_CPT) - 300);
+					let ctx = picked.map(i => chunks[i]).join("\n\n---\n\n");
+					let note = "[retrieved " + picked.length + "/" + chunks.length + " passages (lexical); the "
+						+ "manuscript is longer than the context, so this is a partial view]";
+					let user = "MANUSCRIPT EXCERPTS:\n" + ctx + "\n\n===\nQUESTION: " + question + "\n" + note;
+					let label = "retrieve · " + picked.length + "/" + chunks.length + " passages";
+					if (preview) { mschat_preview_out(user, label); }
+					else { mschat_push("a", await mschat_call(localsettings.mschat_system, user), label); }
+				}
+				else if (mode === 3) //map-reduce
+				{
+					if (preview)
+					{
+						mschat_preview_out("(map-reduce would make " + (chunks.length + 1) + " requests: one per passage, "
+							+ "then one to combine)\n\nFIRST PASSAGE:\n" + chunks[0], "map-reduce · " + chunks.length + " passages");
+					}
+					else
+					{
+						let partials = [], failed = [];
+						for (let i = 0; i < chunks.length; ++i)
+						{
+							mschat_status("map " + (i + 1) + "/" + chunks.length + "…");
+							let u = "MANUSCRIPT EXCERPT (" + (i + 1) + "/" + chunks.length + "):\n" + chunks[i]
+								+ "\n\n===\nQUESTION: " + question + "\nAnswer only from THIS excerpt; if it has "
+								+ "nothing relevant, reply exactly 'NONE'.";
+							try
+							{
+								let a = await mschat_call(localsettings.mschat_system, u);
+								if (a && a.trim().toUpperCase() !== "NONE") { partials.push("[from excerpt " + (i + 1) + "] " + a.trim()); }
+							}
+							catch (e)
+							{
+								//Keep the partials already gathered; note the gap and go on.
+								failed.push(i + 1);
+							}
+						}
+						if (failed.length && !partials.length)
+						{
+							throw new Error("every passage request failed (" + failed.length + "/" + chunks.length + ").");
+						}
+						mschat_status("combining…");
+						let joined = partials.join("\n\n") || "(no excerpt had anything relevant)";
+						if (failed.length)
+						{
+							joined += "\n\n[note: excerpts " + failed.join(", ") + " could not be read — backend errors; "
+								+ "the answer is partial]";
+						}
+						let u = "Per-excerpt findings for the question '" + question + "':\n\n" + joined
+							+ "\n\n===\nCombine these into one coherent answer, removing duplicates.";
+						mschat_push("a", await mschat_call(localsettings.mschat_system, u),
+							"map-reduce · " + chunks.length + " passages"
+							+ (failed.length ? " (" + failed.length + " failed)" : ""));
+					}
+				}
+			}
+			mschat_status("");
+		}
+		catch (e)
+		{
+			mschat_push("err", e.message);
+			mschat_status("failed");
+		}
+		finally
+		{
+			mschat_busy = false;
+			document.getElementById("mschat_send").disabled = false;
+		}
+	}
+
+	function mschat_preview_out(user, label)
+	{
+		mschat_push("a", "─── would send ───\nendpoint: "
+			+ (localsettings.mschat_endpoint || "(none set)") + "/chat/completions\nmodel: "
+			+ (localsettings.mschat_model || "(none set)") + "\n~" + mschat_est_tokens(user).toLocaleString()
+			+ " prompt tokens\n\n" + user.substr(0, 3000) + (user.length > 3000 ? "\n…[truncated in this preview]" : ""),
+			label + " · nothing was sent");
+	}
+
+	//--- the window: drag, resize, geometry --------------------------------
+	function mschat_init_window()
+	{
+		let win = document.getElementById("mschatwindow");
+		let bar = document.getElementById("mschattitlebar");
+		let grip = document.getElementById("mschatresize");
+		let drag = null;
+
+		function place(x, y, w, h)
+		{
+			//Keep at least a corner on screen: a window dragged off the edge and
+			//then reloaded would otherwise be unreachable.
+			let maxx = Math.max(0, window.innerWidth - 60);
+			let maxy = Math.max(0, window.innerHeight - 40);
+			win.style.left = Math.min(Math.max(0, x), maxx) + "px";
+			win.style.top = Math.min(Math.max(0, y), maxy) + "px";
+			win.style.right = "auto";
+			win.style.bottom = "auto";
+			if (w) { win.style.width = Math.max(280, w) + "px"; }
+			if (h) { win.style.height = Math.max(220, h) + "px"; }
+		}
+
+		function save_geom()
+		{
+			let r = win.getBoundingClientRect();
+			localsettings.mschat_geom = [Math.round(r.left), Math.round(r.top),
+				Math.round(r.width), Math.round(r.height)].join(",");
+		}
+
+		function start(mode, ev)
+		{
+			let r = win.getBoundingClientRect();
+			drag = { mode: mode, sx: ev.clientX, sy: ev.clientY, l: r.left, t: r.top, w: r.width, h: r.height };
+			ev.preventDefault();
+			window.addEventListener("pointermove", move);
+			window.addEventListener("pointerup", end);
+		}
+		function move(ev)
+		{
+			if (!drag) { return; }
+			let dx = ev.clientX - drag.sx, dy = ev.clientY - drag.sy;
+			if (drag.mode === "move") { place(drag.l + dx, drag.t + dy); }
+			else { place(drag.l, drag.t, drag.w + dx, drag.h + dy); }
+		}
+		function end()
+		{
+			drag = null;
+			window.removeEventListener("pointermove", move);
+			window.removeEventListener("pointerup", end);
+			save_geom();
+		}
+		bar.addEventListener("pointerdown", ev => {
+			if (ev.target.closest("button")) { return; } //title-bar buttons stay clickable
+			start("move", ev);
+		});
+		grip.addEventListener("pointerdown", ev => start("resize", ev));
+
+		if (localsettings.mschat_geom)
+		{
+			let g = String(localsettings.mschat_geom).split(",").map(Number);
+			if (g.length === 4 && g.every(n => !isNaN(n))) { place(g[0], g[1], g[2], g[3]); }
+		}
+		//F8 opens and closes the pane, so it is reachable with the top menu parked.
+		document.addEventListener("keydown", function(ev) {
+			if (ev.key === "F8" && !ev.ctrlKey && !ev.altKey && !ev.metaKey && !ev.shiftKey)
+			{
+				ev.preventDefault();
+				mschat_show(document.getElementById("mschatwindow").classList.contains("hidden"));
+			}
+		});
+		//Restore the transcript on its own, rather than joining Lite's settings and
+		//story load: it is neither, and a failure to read it must not touch either.
+		try
+		{
+			indexeddb_load("mschat", "").then(raw => {
+				if (!raw) { return; }
+				try
+				{
+					let h = JSON.parse(raw);
+					if (Array.isArray(h)) { mschat_history = h; mschat_render(); }
+				}
+				catch (e) { /* a corrupt transcript is simply an empty one */ }
+			});
+		}
+		catch (e) { /* no store available: the pane still works, just without history */ }
+
+		//The tab shows whenever the window is closed, which is the default.
+		document.getElementById("mschattab").classList.toggle("hidden", !!localsettings.mschat_open);
+		if (localsettings.mschat_open) { mschat_show(true); }
+	}
+
 	function autosave() {
 		//autosave
 		try {
@@ -33854,6 +34612,76 @@ Current version indicated by LITEVER below.
 			</div>
 		</div>
 	</div>
+
+	<!-- ===================================================================
+	     Manuscript chat pane (feat/manuscript-chat-panel)
+	     A floating window for asking a model ABOUT the draft instead of asking
+	     it to continue the draft. It never writes to the story buffer, and it
+	     talks to its OWN endpoint/key/model, so the prose can stay with a small
+	     local model while the questions go to a large one.
+	     =================================================================== -->
+	<div id="mschatwindow" class="mschatwindow hidden">
+		<div class="mschattitlebar" id="mschattitlebar">
+			<div class="mschattitletext">Ask about the manuscript</div>
+			<div class="mschattitlebtns">
+				<span class="mschatstatus" id="mschatstatus"></span>
+				<button type="button" class="mschaticonbtn" id="mschat_btn_conn" title="Connection and context settings" onclick="mschat_toggle_conn()">&#9881;</button>
+				<button type="button" class="mschaticonbtn" title="Clear the conversation" onclick="mschat_clear()">&#128465;</button>
+				<button type="button" class="mschaticonbtn" title="Close (F8)" onclick="mschat_show(false)">&#10005;</button>
+			</div>
+		</div>
+		<div class="mschatconn hidden" id="mschatconn">
+			<div class="mschatconnrow">
+				<label for="mschat_endpoint">Endpoint</label>
+				<input type="text" id="mschat_endpoint" spellcheck="false" placeholder="https://api.openai.com/v1">
+			</div>
+			<div class="mschatconnrow">
+				<label for="mschat_key">API key</label>
+				<input type="password" id="mschat_key" spellcheck="false" placeholder="(blank for a local endpoint)">
+			</div>
+			<div class="mschatconnrow">
+				<label for="mschat_model">Model</label>
+				<input type="text" id="mschat_model" spellcheck="false" placeholder="gpt-4o-mini / a local model name">
+			</div>
+			<div class="mschatconnrow">
+				<label for="mschat_strategy">Long text</label>
+				<select id="mschat_strategy" title="How a manuscript larger than the context window is handled">
+					<option value="0">Auto (whole draft if it fits, else retrieve)</option>
+					<option value="1">Stuff — always send the whole draft</option>
+					<option value="2">Retrieve — send the passages that match the question</option>
+					<option value="3">Map-reduce — ask of every passage, then combine</option>
+				</select>
+			</div>
+			<div class="mschatconnrow">
+				<label for="mschat_context">Context / reply</label>
+				<input type="number" id="mschat_context" min="1024" step="1024" title="The CHAT model's context window, in tokens. Independent of the story model's context size.">
+				<input type="number" id="mschat_maxtokens" min="64" step="64" title="Maximum tokens in the answer">
+				<input type="number" id="mschat_temperature" min="0" max="2" step="0.1" title="Temperature">
+			</div>
+			<div class="mschatconnrow">
+				<label for="mschat_include_memory">Send Memory + World Info</label>
+				<input type="checkbox" id="mschat_include_memory" title="Also send Memory, Author's Note and World Info, so questions about the cast and setup can be answered">
+			</div>
+			<div class="mschatconnrow">
+				<label for="mschat_system">Instructions</label>
+				<textarea id="mschat_system" rows="3" spellcheck="false" title="The system prompt for the question model"></textarea>
+			</div>
+			<div class="mschatconnrow mschatconnnote">
+				Kept apart from the story connection: nothing here changes what writes your prose. The key is
+				never included in saved or shared stories.
+			</div>
+		</div>
+		<div class="mschatlog" id="mschatlog"></div>
+		<div class="mschatinputrow">
+			<textarea id="mschat_input" rows="2" placeholder="Ask about the draft — Enter to send, Shift+Enter for a new line" onkeydown="return mschat_handle_typing(event)"></textarea>
+			<div class="mschatsendcol">
+				<button type="button" class="btn btn-primary mschatsendbtn" id="mschat_send" onclick="mschat_ask()">Ask</button>
+				<button type="button" class="mschatpreviewbtn" id="mschat_preview" title="Show what would be sent, without sending it" onclick="mschat_ask(true)">preview</button>
+			</div>
+		</div>
+		<div class="mschatresize" id="mschatresize" title="Drag to resize"></div>
+	</div>
+	<button type="button" id="mschattab" class="mschattab hidden" title="Ask about the manuscript (F8)" onclick="mschat_show(true)">ASK</button>
 
 	<div class="popupcontainer flex hidden" id="zoomedimgcontainer">
 		<div class="popupbg flex"></div>
