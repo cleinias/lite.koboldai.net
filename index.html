@@ -3622,9 +3622,11 @@ Current version indicated by LITEVER below.
 	body.writingmode #btnmode_chat,
 	body.writingmode #btn_actbranch { display: none; }
 	/* What is left of the action row is legible but quiet until wanted. */
+	/* The rows under the story go the same way as the top menu: invisible
+	   while drafting, back at full strength as soon as the pointer is over them. */
 	body.writingmode #actionmenu,
 	body.writingmode #inputrow {
-		opacity: .3;
+		opacity: 0;
 		transition: opacity .15s ease-out;
 	}
 	body.writingmode #actionmenu:hover,
@@ -33002,7 +33004,7 @@ Current version indicated by LITEVER below.
 						<h3 style="margin-top: 10px;">Writing Mode</h3>
 						<div class="settinglabel">
 							<div class="justifyleft">Writing mode <span class="helpicon">?<span
-								class="helptext">A distraction-free skin for drafting prose: you write directly in the story (Allow Editing is turned on and the input box is hidden; Generate continues from the end), the top menu is invisible until you point at the top of the window, the buttons below the story fade until you reach for them, the status lines go, and the prose sits on one centred column. Toggle any time with F9. Changes nothing about generation.</span></span></div>
+								class="helptext">A distraction-free skin for drafting prose: you write directly in the story (Allow Editing is turned on and the input box is hidden; Generate continues from the end), the top menu and the buttons below the story are invisible until you point at them, the status lines go, and the prose sits on one centred column. Toggle any time with F9. Changes nothing about generation.</span></span></div>
 							<input title="Writing Mode" type="checkbox" id="writing_mode" class="push-right">
 						</div>
 						<div class="settinglabel">
