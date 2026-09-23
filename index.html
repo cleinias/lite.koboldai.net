@@ -3575,9 +3575,9 @@ Current version indicated by LITEVER below.
 		   apply_writing_mode. It must not be left in em: `em` inside a custom
 		   property resolves against whatever element ends up using it, so the prose
 		   column and the input column below it would silently disagree. */
-		--writing_measure: 544px;
-		--writing_fontsize: 17px;
-		--writing_lineheight: 1.6;
+		--writing_measure: 672px;
+		--writing_fontsize: 16px;
+		--writing_lineheight: 1.5;
 		--writing_fontfamily: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
 		--writing_typewriter_pad: 24px;
 	}
@@ -3606,11 +3606,11 @@ Current version indicated by LITEVER below.
 		background-color: var(--theme_color_bg_outer);
 	}
 	body.writingmode #maineditbody { border: 0; }
-	/* Chrome that is noise while drafting. The top menu stays where it is and
-	   stays visible, only faded: a menu that slides out of sight until you find
-	   a hidden hover strip was a menu people thought had gone. */
+	/* Chrome that is noise while drafting. The top menu is invisible but stays
+	   in place, full size: the whole band at the top of the window is the hover
+	   target, not a sliver that has to be hunted for. */
 	body.writingmode .topmenu {
-		opacity: .3;
+		opacity: 0;
 		transition: opacity .15s ease-out;
 	}
 	body.writingmode .topmenu:hover,
@@ -4736,9 +4736,9 @@ Current version indicated by LITEVER below.
 		writing_serif: true, //prose in a serif face
 		writing_palette: 0, //0 = paper, 1 = night, 2 = keep the colour theme
 		writing_typewriter: false, //keep the line with the caret mid-screen while writing
-		writing_fontsize: 17, //px
-		writing_lineheight: 1.6,
-		writing_measure: 32, //em, the clamped line length (~65 characters)
+		writing_fontsize: 16, //px
+		writing_lineheight: 1.5,
+		writing_measure: 42, //em of the prose size, the clamped line length
 		writer_profile: false, //hide the media/voice/horde/multiplayer/adventure surfaces
 		passed_ai_warning: false, //used to store AI safety panel acknowledgement state
 		entersubmit: (is_on_mobile()?false:true), //enter sends the prompt
@@ -17855,14 +17855,14 @@ Current version indicated by LITEVER below.
 			return;
 		}
 		//The measure is given in em of the prose size, the way typographers state it
-		//(~32em is a 65-character line), but it is handed to CSS in px: an em inside
+		//(the default is 42em), but it is handed to CSS in px: an em inside
 		//a custom property is resolved by the element that uses it, so the story and
 		//the rows under it would otherwise be clamped to different widths.
-		let fontsize = parseFloat(localsettings.writing_fontsize) || 17;
-		let measure_em = parseFloat(localsettings.writing_measure) || 32;
+		let fontsize = parseFloat(localsettings.writing_fontsize) || 16;
+		let measure_em = parseFloat(localsettings.writing_measure) || 42;
 		st.setProperty("--writing_measure", (measure_em * fontsize) + "px");
 		st.setProperty("--writing_fontsize", fontsize + "px");
-		st.setProperty("--writing_lineheight", (parseFloat(localsettings.writing_lineheight)||1.6));
+		st.setProperty("--writing_lineheight", (parseFloat(localsettings.writing_lineheight)||1.5));
 		st.setProperty("--writing_fontfamily", localsettings.writing_serif
 			? 'Georgia, "Iowan Old Style", "Palatino Linotype", serif'
 			: 'system-ui, "Segoe UI", Roboto, sans-serif');
@@ -18102,9 +18102,9 @@ Current version indicated by LITEVER below.
 		localsettings.writing_serif = (document.getElementById("writing_serif").checked ? true : false);
 		localsettings.writing_palette = parseInt(document.getElementById("writing_palette").value) || 0;
 		localsettings.writing_typewriter = (document.getElementById("writing_typewriter").checked ? true : false);
-		localsettings.writing_fontsize = (parseFloat(document.getElementById("writing_fontsize").value) || 17);
-		localsettings.writing_lineheight = (parseFloat(document.getElementById("writing_lineheight").value) || 1.6);
-		localsettings.writing_measure = (parseFloat(document.getElementById("writing_measure").value) || 32);
+		localsettings.writing_fontsize = (parseFloat(document.getElementById("writing_fontsize").value) || 16);
+		localsettings.writing_lineheight = (parseFloat(document.getElementById("writing_lineheight").value) || 1.5);
+		localsettings.writing_measure = (parseFloat(document.getElementById("writing_measure").value) || 42);
 		localsettings.writer_profile = (document.getElementById("writer_profile").checked ? true : false);
 		localsettings.trimsentences = (document.getElementById("trimsentences").checked ? true : false);
 		localsettings.trimwhitespace = (document.getElementById("trimwhitespace").checked ? true : false);
@@ -32149,7 +32149,7 @@ Current version indicated by LITEVER below.
 						<h3 style="margin-top: 10px;">Writing Mode</h3>
 						<div class="settinglabel">
 							<div class="justifyleft">Writing mode <span class="helpicon">?<span
-								class="helptext">A distraction-free skin for drafting prose: you write directly in the story (Allow Editing is turned on and the input box is hidden; Generate continues from the end), the menus and buttons fade until you reach for them, the status lines go, and the prose sits on one centred column. Toggle any time with F9. Changes nothing about generation.</span></span></div>
+								class="helptext">A distraction-free skin for drafting prose: you write directly in the story (Allow Editing is turned on and the input box is hidden; Generate continues from the end), the top menu is invisible until you point at the top of the window, the buttons below the story fade until you reach for them, the status lines go, and the prose sits on one centred column. Toggle any time with F9. Changes nothing about generation.</span></span></div>
 							<input title="Writing Mode" type="checkbox" id="writing_mode" class="push-right">
 						</div>
 						<div class="settinglabel">
@@ -32173,17 +32173,17 @@ Current version indicated by LITEVER below.
 						</div>
 						<div class="settinglabel">
 							<div class="justifyleft">Prose text size <span class="helpicon">?<span
-								class="helptext">Font size of the story in writing mode, in pixels (default 17).</span></span></div>
+								class="helptext">Font size of the story in writing mode, in pixels (default 16).</span></span></div>
 							<input class="push-right" title="Prose Text Size" type="number" min="10" max="48" step="1" style="width:70px;" id="writing_fontsize">
 						</div>
 						<div class="settinglabel">
 							<div class="justifyleft">Prose line spacing <span class="helpicon">?<span
-								class="helptext">Line height of the story in writing mode (default 1.6).</span></span></div>
+								class="helptext">Line height of the story in writing mode (default 1.5).</span></span></div>
 							<input class="push-right" title="Prose Line Spacing" type="number" min="1" max="3" step="0.05" style="width:70px;" id="writing_lineheight">
 						</div>
 						<div class="settinglabel">
 							<div class="justifyleft">Prose measure (em) <span class="helpicon">?<span
-								class="helptext">The line length of the story in writing mode, in em of the prose size. The default 32em is about 65 characters, the readable measure typography settled on; raise it for a wider column.</span></span></div>
+								class="helptext">The line length of the story in writing mode, in em of the prose size. Default 42em; lower it for a narrower column.</span></span></div>
 							<input class="push-right" title="Prose Measure" type="number" min="16" max="80" step="1" style="width:70px;" id="writing_measure">
 						</div>
 						<div class="settinglabel">
