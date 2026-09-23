@@ -28478,6 +28478,9 @@ Current version indicated by LITEVER below.
 	//are what a writer comes back to (after an edit, or with another model).
 	let mschat_questions = [];
 	let mschat_busy = false;
+	let mschat_abortctl = null; //cancels the request in flight when the writer presses Stop
+	let mschat_stopped = false; //and tells a map-reduce loop not to start the next one
+	const MSCHAT_MAPREDUCE_CONFIRM = 20; //ask before a map-reduce run makes more requests than this
 	let mschat_hist_pos = -1; //-1 = not stepping through earlier questions
 	let mschat_hist_draft = ""; //what was in the box before stepping started
 	let mschat_kobold_model = ""; //the model KoboldCpp reported on Connect, for answer labels
@@ -28968,6 +28971,7 @@ Current version indicated by LITEVER below.
 			resp = await fetch(url, {
 				method: "POST",
 				headers: headers,
+				signal: mschat_abortctl ? mschat_abortctl.signal : undefined,
 				body: JSON.stringify({
 					model: t.model,
 					messages: [{ role: "system", content: system }, { role: "user", content: user }],
@@ -28979,6 +28983,7 @@ Current version indicated by LITEVER below.
 		}
 		catch (e)
 		{
+			if (mschat_stopped || (e && e.name === "AbortError")) { throw new Error("Stopped."); }
 			//A browser reports CORS and connection refused the same opaque way,
 			//so name both possibilities instead of guessing.
 			throw new Error("Could not reach " + url + " — the endpoint is down, or it did not send the "
@@ -29034,8 +29039,9 @@ Current version indicated by LITEVER below.
 			mschat_remember_question(question);
 			mschat_push("q", question);
 		}
-		mschat_busy = true;
-		document.getElementById("mschat_send").disabled = true;
+		mschat_stopped = false;
+		mschat_abortctl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+		mschat_set_busy(true);
 		mschat_status(preview ? "preview…" : "asking…");
 		try
 		{
@@ -29078,10 +29084,27 @@ Current version indicated by LITEVER below.
 					}
 					else
 					{
+						if (chunks.length + 1 > MSCHAT_MAPREDUCE_CONFIRM)
+						{
+							let go = await new Promise(res => msgboxYesNo("Map-reduce would make <b>" + (chunks.length + 1)
+								+ " requests</b> for this question: one for each of " + chunks.length + " passages, then one to "
+								+ "combine them. On a local model that can take a long time.<br><br>For fewer, larger passages, "
+								+ "raise the pane's Context; or use Retrieve instead. Go ahead anyway?",
+								"Many requests", () => res(true), () => res(false), true));
+							if (!go)
+							{
+								throw new Error("Not sent: map-reduce would have made " + (chunks.length + 1) + " requests. "
+									+ "Raise the Context for fewer passages, or choose Retrieve.");
+							}
+						}
 						let partials = [], failed = [];
 						for (let i = 0; i < chunks.length; ++i)
 						{
-							mschat_status("map " + (i + 1) + "/" + chunks.length + "…");
+							if (mschat_stopped)
+							{
+								throw new Error("Stopped after " + i + " of " + chunks.length + " passages.");
+							}
+							mschat_status("map " + (i + 1) + "/" + chunks.length + "… (Stop to cancel)");
 							let u = "MANUSCRIPT EXCERPT (" + (i + 1) + "/" + chunks.length + "):\n" + chunks[i]
 								+ "\n\n===\nQUESTION: " + question + "\nNote briefly what in THIS excerpt bears on the "
 								+ "question: facts, passages, or anything that would inform an answer or a judgment. "
@@ -29093,6 +29116,7 @@ Current version indicated by LITEVER below.
 							}
 							catch (e)
 							{
+								if (mschat_stopped) { throw new Error("Stopped after " + i + " of " + chunks.length + " passages."); }
 								//Keep the partials already gathered; note the gap and go on.
 								failed.push(i + 1);
 							}
@@ -29122,13 +29146,42 @@ Current version indicated by LITEVER below.
 		catch (e)
 		{
 			mschat_push("err", e.message);
-			mschat_status("failed");
+			mschat_status(mschat_stopped ? "" : "failed");
 		}
 		finally
 		{
-			mschat_busy = false;
-			document.getElementById("mschat_send").disabled = false;
+			mschat_abortctl = null;
+			mschat_set_busy(false);
 		}
+	}
+
+	//Stop: cancel the request in flight, end a map-reduce loop, and — since a
+	//cancelled HTTP request does not stop KoboldCpp generating — tell a KoboldCpp
+	//backend to abort as well. Hosted APIs stop billing when the connection drops.
+	function mschat_stop()
+	{
+		if (!mschat_busy) { return; }
+		mschat_stopped = true;
+		mschat_status("stopping…");
+		if (mschat_abortctl) { try { mschat_abortctl.abort(); } catch (e) { } }
+		if (localsettings.mschat_provider != 2)
+		{
+			let base = mschat_kobold_base(localsettings.mschat_kobold_endpoint || mschat_default_kobold_url());
+			let headers = localsettings.saved_mschat_kobold_key ? { "Authorization": "Bearer " + localsettings.saved_mschat_kobold_key } : {};
+			fetch(base + "/api/extra/abort", { method: "POST", headers: headers }).catch(() => {});
+		}
+	}
+	function mschat_send_or_stop()
+	{
+		if (mschat_busy) { mschat_stop(); } else { mschat_ask(); }
+	}
+	function mschat_set_busy(on)
+	{
+		mschat_busy = on;
+		let b = document.getElementById("mschat_send");
+		b.innerText = on ? "Stop" : "Ask";
+		b.title = on ? "Stop this question (cancels the request, and tells KoboldCpp to stop generating)" : "";
+		document.getElementById("mschat_preview").disabled = on;
 	}
 
 	function mschat_preview_out(user, label)
@@ -34956,7 +35009,7 @@ Current version indicated by LITEVER below.
 		<div class="mschatinputrow">
 			<textarea id="mschat_input" rows="2" placeholder="Ask about the draft — Enter to send, Shift+Enter for a new line, ↑ for earlier questions" onkeydown="return mschat_handle_typing(event)"></textarea>
 			<div class="mschatsendcol">
-				<button type="button" class="btn btn-primary mschatsendbtn" id="mschat_send" onclick="mschat_ask()">Ask</button>
+				<button type="button" class="btn btn-primary mschatsendbtn" id="mschat_send" onclick="mschat_send_or_stop()">Ask</button>
 				<button type="button" class="mschatpreviewbtn" id="mschat_preview" title="Show what would be sent, without sending it" onclick="mschat_ask(true)">preview</button>
 			</div>
 		</div>
