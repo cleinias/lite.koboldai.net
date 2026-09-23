@@ -3622,17 +3622,19 @@ Current version indicated by LITEVER below.
 	body.writingmode #btnmode_chat,
 	body.writingmode #btn_actbranch { display: none; }
 	/* What is left of the action row is legible but quiet until wanted. */
-	/* The rows under the story go the same way as the top menu: invisible
-	   while drafting, back at full strength as soon as the pointer is over them. */
-	body.writingmode #actionmenu,
-	body.writingmode #inputrow {
+	/* The action row under the story goes the same way as the top menu:
+	   invisible while drafting, back as soon as the pointer is over it. Its hover
+	   target is the full width of the column and a little taller than the
+	   buttons, since there is nothing visible to aim at. The Generate button
+	   below it is never hidden: it is the one control used while drafting. */
+	body.writingmode #actionmenu {
 		opacity: 0;
 		transition: opacity .15s ease-out;
+		width: 100%;
+		padding: 6px 0;
 	}
 	body.writingmode #actionmenu:hover,
-	body.writingmode #actionmenu:focus-within,
-	body.writingmode #inputrow:hover,
-	body.writingmode #inputrow:focus-within { opacity: 1; }
+	body.writingmode #actionmenu:focus-within { opacity: 1; }
 	/* The prose is written in the page itself (writing mode turns Allow Editing
 	   on), so the separate input box goes. What is left of the input row is the
 	   Generate button, which continues the story from the end of the page. */
@@ -32151,7 +32153,7 @@ Current version indicated by LITEVER below.
 						<h3 style="margin-top: 10px;">Writing Mode</h3>
 						<div class="settinglabel">
 							<div class="justifyleft">Writing mode <span class="helpicon">?<span
-								class="helptext">A distraction-free skin for drafting prose: you write directly in the story (Allow Editing is turned on and the input box is hidden; Generate continues from the end), the top menu and the buttons below the story are invisible until you point at them, the status lines go, and the prose sits on one centred column. Toggle any time with F9. Changes nothing about generation.</span></span></div>
+								class="helptext">A distraction-free skin for drafting prose: you write directly in the story (Allow Editing is turned on and the input box is hidden; Generate continues from the end), the top menu and the buttons below the story (all but Generate) are invisible until you point at them, the status lines go, and the prose sits on one centred column. Toggle any time with F9. Changes nothing about generation.</span></span></div>
 							<input title="Writing Mode" type="checkbox" id="writing_mode" class="push-right">
 						</div>
 						<div class="settinglabel">
