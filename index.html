@@ -3935,6 +3935,56 @@ Current version indicated by LITEVER below.
 	@media (max-width: 600px) {
 		.mschatwindow { width: calc(100vw - 20px); height: 70vh; right: 10px; bottom: 10px; }
 	}
+	   Writer tools (feat/writer-tools): word count, find and replace, smart
+	   punctuation. Small, dependency-free, and working on Lite's own editable
+	   story text rather than replacing it with an editor library.
+	   --------------------------------------------------------------------- */
+	.wt_wordcount {
+		align-self: center;
+		font-size: 11px;
+		color: var(--theme_color_fg_muted);
+		margin-right: 10px;
+		white-space: nowrap;
+	}
+	.wt_findbar {
+		position: fixed;
+		top: 60px;
+		right: 20px;
+		z-index: 60;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		max-width: 520px;
+		padding: 6px 8px;
+		background-color: var(--theme_color_bg_popups);
+		color: var(--theme_color_fg);
+		border: 1px solid var(--theme_color_border);
+		border-radius: 6px;
+		box-shadow: 0 4px 16px rgba(0,0,0,.35);
+		font-size: 12px;
+	}
+	.wt_findbar input[type="text"] {
+		width: 150px;
+		margin: 2px 4px 2px 0;
+		padding: 2px 5px;
+		font-size: 12px;
+		background-color: var(--theme_color_input_bg);
+		color: var(--theme_color_input_fg);
+		border: 1px solid var(--theme_color_border);
+		border-radius: 3px;
+	}
+	.wt_findbar button {
+		margin: 2px 2px;
+		padding: 1px 7px;
+		font-size: 11px;
+		color: var(--theme_color_accent_fg);
+		background-color: var(--theme_color_accent_bg);
+		border: 1px solid var(--theme_color_border);
+		border-radius: 3px;
+	}
+	.wt_findbar button:hover { background-color: var(--theme_color_accent_bg_highlight); }
+	.wt_findbar label { margin: 0 6px 0 2px; font-weight: normal; cursor: pointer; }
+	.wt_findbar .wt_findinfo { margin-left: 6px; color: var(--theme_color_fg_muted); min-width: 60px; }
 	</style>
 
 	<script id="third-party.min">
@@ -4972,6 +5022,7 @@ Current version indicated by LITEVER below.
 		mschat_include_memory: false, //also send Memory / Author's Note / World Info
 		mschat_system: MSCHAT_SYSTEM_DEFAULT,
 		mschat_geom: "", //"left,top,width,height" of the floating window
+		writer_smartpunct: 0, //feat/writer-tools: 0 off, 1 English “ ”, 2 Italian « », 3 French « » with spaces
 		passed_ai_warning: false, //used to store AI safety panel acknowledgement state
 		entersubmit: (is_on_mobile()?false:true), //enter sends the prompt
 		darkmode: true,
@@ -6332,6 +6383,18 @@ Current version indicated by LITEVER below.
 	}
 	mschat_init_window(); //manuscript chat pane (feat/manuscript-chat-panel)
 	document.getElementById("gametext").addEventListener("input", continuous_save_on_typing); //feat/continuous-save-to-disk
+	//writer tools (feat/writer-tools): word count, find/replace, smart punctuation
+	(function () {
+		let gt = document.getElementById("gametext");
+		gt.addEventListener("keydown", wt_smart_keys);
+		gt.addEventListener("input", wt_schedule_wordcount);
+		if (window.MutationObserver) { new MutationObserver(wt_schedule_wordcount).observe(gt, { childList: true, subtree: true, characterData: true }); }
+		document.addEventListener("selectionchange", wt_schedule_wordcount);
+		document.addEventListener("keydown", function (ev) {
+			if ((ev.ctrlKey || ev.metaKey) && !ev.altKey && (ev.key === "h" || ev.key === "H")) { ev.preventDefault(); wt_find_show(true); }
+		});
+		wt_update_wordcount();
+	})();
 
 	//start the polling script for async generation status checking every Xs
 	setInterval(poll_pending_response, poll_interval_base_text);
@@ -17343,6 +17406,7 @@ Current version indicated by LITEVER below.
 		document.getElementById("writing_lineheight").value = localsettings.writing_lineheight;
 		document.getElementById("writing_measure").value = localsettings.writing_measure;
 		document.getElementById("writer_profile").checked = localsettings.writer_profile;
+		document.getElementById("writer_smartpunct").value = localsettings.writer_smartpunct;
 		document.getElementById("trimsentences").checked = localsettings.trimsentences;
 		document.getElementById("trimwhitespace").checked = localsettings.trimwhitespace;
 		document.getElementById("compressnewlines").checked = localsettings.compressnewlines;
@@ -18396,6 +18460,7 @@ Current version indicated by LITEVER below.
 		localsettings.writing_lineheight = (parseFloat(document.getElementById("writing_lineheight").value) || 1.5);
 		localsettings.writing_measure = (parseFloat(document.getElementById("writing_measure").value) || 42);
 		localsettings.writer_profile = (document.getElementById("writer_profile").checked ? true : false);
+		localsettings.writer_smartpunct = parseInt(document.getElementById("writer_smartpunct").value) || 0;
 		localsettings.trimsentences = (document.getElementById("trimsentences").checked ? true : false);
 		localsettings.trimwhitespace = (document.getElementById("trimwhitespace").checked ? true : false);
 		localsettings.compressnewlines = (document.getElementById("compressnewlines").checked ? true : false);
@@ -19759,6 +19824,306 @@ Current version indicated by LITEVER below.
 	{
 		document.getElementById("allowediting").checked = false;
 		toggle_editable();
+	}
+
+	//===================================================================
+	// Writer tools (feat/writer-tools)
+	// Word count, find and replace, and smart punctuation, built on Lite's own
+	// editable story text. An editor library would bring its own document model
+	// and fight Lite's chunked story (undo, retry, AI-text marking); these work
+	// with it. All of it keeps to what Firefox 50 runs.
+	//===================================================================
+	//Letters of the Latin (accented or not), Greek and Cyrillic scripts, and digits;
+	//an apostrophe inside a word keeps it one word ("l'amore", "don't").
+	const WT_WORD_RE = /[A-Za-z0-9\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F\u0300-\u036F\u0370-\u03FF\u0400-\u04FF\u1E00-\u1EFF]+(?:['\u2019][A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F\u0370-\u03FF\u0400-\u04FF]+)*/g;
+	const WT_LETTER_RE = /[A-Za-z0-9\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F\u0300-\u036F\u0370-\u03FF\u0400-\u04FF\u1E00-\u1EFF]/;
+	function wt_count_words(text)
+	{
+		let m = (text || "").match(WT_WORD_RE);
+		return m ? m.length : 0;
+	}
+
+	//--- word count ---------------------------------------------------------
+	//Counts what is on the page (so text typed but not yet merged is counted),
+	//and the selection when there is one inside the story.
+	var wt_count_timer = null;
+	function wt_update_wordcount()
+	{
+		let el = document.getElementById("wt_wordcount");
+		if (!el) { return; }
+		let n = (gametext_arr.length == 0) ? 0 : wt_count_words(document.getElementById("gametext").innerText);
+		let txt = n.toLocaleString() + (n == 1 ? " word" : " words");
+		let sel = window.getSelection ? window.getSelection() : null;
+		if (sel && sel.rangeCount && !sel.isCollapsed && document.getElementById("gametext").contains(sel.anchorNode))
+		{
+			let k = wt_count_words(sel.toString());
+			if (k > 0) { txt += " · " + k.toLocaleString() + " selected"; }
+		}
+		el.innerText = txt;
+	}
+	function wt_schedule_wordcount()
+	{
+		clearTimeout(wt_count_timer);
+		wt_count_timer = setTimeout(wt_update_wordcount, 300);
+	}
+
+	//--- find and replace ---------------------------------------------------
+	//Finding works on the text on the page and selects each match. Replacing one
+	//match edits the page, so the browser's own undo takes it back; replacing all
+	//folds any typing into the story first and then changes the story itself,
+	//with its own one-step undo (Lite's Undo works on generated chunks, not this).
+	var wt_matches = [];
+	var wt_current = -1;
+	var wt_undo_snapshot = null;
+	function wt_find_show(show)
+	{
+		let bar = document.getElementById("wt_findbar");
+		bar.classList.toggle("hidden", !show);
+		if (show)
+		{
+			let sel = window.getSelection();
+			let q = document.getElementById("wt_find");
+			if (sel && !sel.isCollapsed && sel.toString().length < 200 && document.getElementById("gametext").contains(sel.anchorNode))
+			{
+				q.value = sel.toString(); //start from the selected text, as editors do
+			}
+			q.focus();
+			q.select();
+			wt_find_update();
+		}
+		else
+		{
+			wt_matches = [];
+			wt_current = -1;
+		}
+	}
+	function wt_escape_re(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+	function wt_query_re()
+	{
+		let q = document.getElementById("wt_find").value;
+		if (!q) { return null; }
+		return new RegExp(wt_escape_re(q), document.getElementById("wt_case").checked ? "g" : "gi");
+	}
+	//The story's text nodes in order, with where each starts in their joined text.
+	function wt_text_nodes()
+	{
+		let gt = document.getElementById("gametext");
+		let nodes = [], pos = 0;
+		let w = document.createTreeWalker(gt, NodeFilter.SHOW_TEXT, null, false);
+		while (w.nextNode()) { nodes.push({ node: w.currentNode, start: pos }); pos += w.currentNode.nodeValue.length; }
+		return nodes;
+	}
+	function wt_locate(nodes, offset)
+	{
+		for (let k = nodes.length - 1; k >= 0; --k)
+		{
+			if (offset >= nodes[k].start) { return { node: nodes[k].node, offset: offset - nodes[k].start }; }
+		}
+		return null;
+	}
+	function wt_is_whole_word(text, a, b)
+	{
+		return !(a > 0 && WT_LETTER_RE.test(text.charAt(a - 1))) && !(b < text.length && WT_LETTER_RE.test(text.charAt(b)));
+	}
+	function wt_find_update()
+	{
+		wt_matches = [];
+		let re = wt_query_re();
+		let info = document.getElementById("wt_findinfo");
+		if (!re || gametext_arr.length == 0) { info.innerText = ""; wt_current = -1; return; }
+		let nodes = wt_text_nodes();
+		let text = nodes.map(n => n.node.nodeValue).join("");
+		let whole = document.getElementById("wt_word").checked;
+		let m;
+		while ((m = re.exec(text)) !== null)
+		{
+			if (m[0].length == 0) { re.lastIndex++; continue; }
+			if (whole && !wt_is_whole_word(text, m.index, m.index + m[0].length)) { continue; }
+			wt_matches.push({ a: m.index, b: m.index + m[0].length });
+		}
+		wt_current = wt_matches.length ? 0 : -1;
+		info.innerText = wt_matches.length ? ("1 of " + wt_matches.length) : "no matches";
+		if (wt_matches.length) { wt_select_current(false); }
+	}
+	function wt_select_current(focus)
+	{
+		if (wt_current < 0) { return false; }
+		let nodes = wt_text_nodes();
+		let mt = wt_matches[wt_current];
+		let a = wt_locate(nodes, mt.a), b = wt_locate(nodes, mt.b);
+		if (!a || !b) { return false; }
+		let r = document.createRange();
+		r.setStart(a.node, a.offset);
+		r.setEnd(b.node, b.offset);
+		let sel = window.getSelection();
+		sel.removeAllRanges();
+		sel.addRange(r);
+		let el = a.node.parentElement;
+		if (el && el.scrollIntoView) { el.scrollIntoView({ block: "center" }); }
+		document.getElementById("wt_findinfo").innerText = (wt_current + 1) + " of " + wt_matches.length;
+		return true;
+	}
+	function wt_find_step(dir)
+	{
+		if (!wt_matches.length) { wt_find_update(); if (!wt_matches.length) { return; } }
+		wt_current = (wt_current + dir + wt_matches.length) % wt_matches.length;
+		wt_select_current(false);
+	}
+	function wt_find_keys(ev)
+	{
+		if (ev.key === "Enter")
+		{
+			ev.preventDefault();
+			if (ev.target.id === "wt_replace") { wt_replace_one(); } else { wt_find_step(ev.shiftKey ? -1 : 1); }
+			return false;
+		}
+		if (ev.key === "Escape") { ev.preventDefault(); wt_find_show(false); return false; }
+		return true;
+	}
+	function wt_ensure_editing()
+	{
+		let ae = document.getElementById("allowediting");
+		if (!ae.checked) { ae.checked = true; toggle_editable(); }
+	}
+	function wt_insert_text(txt)
+	{
+		//insertText keeps the browser's undo; a direct range edit is the fallback
+		let ok = false;
+		try { ok = document.execCommand("insertText", false, txt); } catch (e) { ok = false; }
+		if (!ok)
+		{
+			let sel = window.getSelection();
+			if (!sel.rangeCount) { return; }
+			let r = sel.getRangeAt(0);
+			r.deleteContents();
+			let t = document.createTextNode(txt);
+			r.insertNode(t);
+			r.setStartAfter(t);
+			r.collapse(true);
+			sel.removeAllRanges();
+			sel.addRange(r);
+		}
+	}
+	function wt_replace_one()
+	{
+		if (!wt_matches.length) { wt_find_update(); if (!wt_matches.length) { return; } }
+		wt_ensure_editing();
+		wt_find_update_keep();
+		if (!wt_select_current(true)) { return; }
+		let gt = document.getElementById("gametext");
+		gt.focus();
+		wt_select_current(true); //focus can move the selection; put it back on the match
+		wt_insert_text(document.getElementById("wt_replace").value);
+		wt_schedule_wordcount();
+		//move on to the next match, as editors do
+		let keep = wt_current;
+		wt_find_update();
+		if (wt_matches.length) { wt_current = Math.min(keep, wt_matches.length - 1); wt_select_current(false); }
+	}
+	//re-find without losing our place (the page may have been re-rendered)
+	function wt_find_update_keep()
+	{
+		let keep = wt_current;
+		wt_find_update();
+		if (wt_matches.length && keep >= 0) { wt_current = Math.min(keep, wt_matches.length - 1); }
+	}
+	function wt_replace_all()
+	{
+		let re = wt_query_re();
+		if (!re || gametext_arr.length == 0) { return; }
+		if (document.getElementById("allowediting").checked) { merge_edit_field(); } //fold in any typing first
+		let repl = document.getElementById("wt_replace").value;
+		let whole = document.getElementById("wt_word").checked;
+		let count = 0;
+		wt_undo_snapshot = gametext_arr.slice();
+		gametext_arr = gametext_arr.map(function (chunk) {
+			return chunk.replace(re, function (m0, off, str) {
+				if (whole && !wt_is_whole_word(str, off, off + m0.length)) { return m0; }
+				count++;
+				return repl;
+			});
+		});
+		if (count == 0) { wt_undo_snapshot = null; }
+		render_gametext(true);
+		document.getElementById("wt_undo_all").classList.toggle("hidden", count == 0);
+		wt_find_update();
+		document.getElementById("wt_findinfo").innerText = "replaced " + count;
+		wt_schedule_wordcount();
+	}
+	function wt_undo_replace_all()
+	{
+		if (!wt_undo_snapshot) { return; }
+		gametext_arr = wt_undo_snapshot;
+		wt_undo_snapshot = null;
+		render_gametext(true);
+		document.getElementById("wt_undo_all").classList.add("hidden");
+		wt_find_update();
+		wt_schedule_wordcount();
+	}
+
+	//--- smart punctuation ----------------------------------------------------
+	//Only keys typed into the story are changed. Quotes open after a space, the
+	//start of a line or an opening bracket/dash, and close otherwise; '--' is an
+	//en-dash and '---' an em-dash (the LaTeX convention).
+	function wt_char_before_caret()
+	{
+		let sel = window.getSelection();
+		if (!sel || !sel.rangeCount || !sel.isCollapsed) { return null; }
+		let r = sel.getRangeAt(0);
+		let n = r.startContainer, o = r.startOffset;
+		if (n.nodeType === 3) { return o > 0 ? n.nodeValue.charAt(o - 1) : ""; }
+		//caret between elements: look at the text just before it
+		let pre = r.cloneRange();
+		pre.selectNodeContents(document.getElementById("gametext"));
+		pre.setEnd(n, o);
+		let t = pre.toString();
+		return t.length ? t.charAt(t.length - 1) : "";
+	}
+	function wt_smart_keys(ev)
+	{
+		let style = parseInt(localsettings.writer_smartpunct) || 0;
+		if (!style || ev.ctrlKey || ev.metaKey || ev.altKey) { return; }
+		if (!document.getElementById("allowediting").checked) { return; }
+		let k = ev.key;
+		if (k !== '"' && k !== "'" && k !== "-") { return; }
+		let prev = wt_char_before_caret();
+		if (prev === null) { return; }
+		let opening = (prev === "" || /[\s(\[{«“‘—–\-\u00A0]/.test(prev));
+		let out = null, del = false;
+		if (k === "-")
+		{
+			if (prev === "–") { out = "—"; del = true; }       //third hyphen: en-dash becomes em-dash
+			else if (prev === "-") { out = "–"; del = true; }  //second hyphen: en-dash
+			else { return; }
+		}
+		else if (k === "'")
+		{
+			out = opening ? "‘" : "’"; //after a letter this is the apostrophe
+		}
+		else //double quote
+		{
+			if (style === 1) { out = opening ? "“" : "”"; }
+			else if (style === 2) { out = opening ? "«" : "»"; }
+			else
+			{
+				//French: a non-breaking space inside the guillemets
+				if (opening) { out = "«\u00A0"; }
+				else if (prev === " ") { out = "\u00A0»"; del = true; }
+				else { out = "\u00A0»"; }
+			}
+		}
+		ev.preventDefault();
+		if (del)
+		{
+			let ok = false;
+			try { ok = document.execCommand("delete", false, null); } catch (e) { ok = false; }
+			if (!ok)
+			{
+				let sel = window.getSelection(), r = sel.getRangeAt(0);
+				if (r.startContainer.nodeType === 3 && r.startOffset > 0) { r.setStart(r.startContainer, r.startOffset - 1); r.deleteContents(); }
+			}
+		}
+		wt_insert_text(out);
 	}
 
 	function toggle_hide_thinking(button) {
@@ -32778,8 +33143,10 @@ Current version indicated by LITEVER below.
 				<button type="button" class="btn actbtn btn-primary mainnav slim btnicon-websearch hidden" id="btn_togglesearch" onclick="toggle_websearch_minibtn()">&nbsp;</button>
 				<button type="button" class="btn actbtn btn-primary mainnav slim btnicon-voice hidden" id="btn_togglevoice" onclick="toggle_voice_input_minibtn()">&nbsp;</button>
 				<button type="button" class="btn actbtn btn-primary mainnav slim btnicon-tts hidden" id="btn_toggletts" onclick="toggle_tts_minibtn()">&nbsp;</button>
+				<button type="button" class="btn actbtn btn-primary mainnav" id="btn_wt_find" title="Find and replace in the story (Ctrl+H)" onclick="wt_find_show(true)">Find</button>
 			</div>
-			<div class="borderbox flex push-right">
+			<span class="wt_wordcount push-right" id="wt_wordcount" title="Words in the story (and in the selection)"></span>
+			<div class="borderbox flex">
 				<input type="checkbox" id="allowediting" class="mainnav" onclick="toggle_editable()">
 				<div class="box-label"><label for="allowediting">Allow Editing</label></div>
 			</div>
@@ -33521,6 +33888,16 @@ Current version indicated by LITEVER below.
 							<div class="justifyleft">Story-writer profile <span class="helpicon">?<span
 								class="helptext">Hides what a prose writer never opens: the media and voice panels, the Horde worker tables, multiplayer, adventure mode, and every backend except KoboldAI Remote (local KoboldCpp) and the generic OpenAI-compatible endpoint. Nothing is removed — untick to get it all back. A provider you had already selected stays selected.</span></span></div>
 							<input title="Story-Writer Profile" type="checkbox" id="writer_profile" class="push-right">
+						</div>
+						<div class="settinglabel">
+							<div class="justifyleft">Smart punctuation <span class="helpicon">?<span
+								class="helptext">As you type in the story: straight quotes become typographic ones in the chosen style (English “ ” ‘ ’, Italian « », French « » with non-breaking spaces), an apostrophe becomes ’, two hyphens an en-dash – and three an em-dash — (the LaTeX convention). Only what you type is changed, never generated text, and Ctrl+Z undoes it.</span></span></div>
+							<select title="Smart Punctuation" style="padding:1px; height:auto; width: 90px; appearance: none; font-size: 7pt;" class="form-control push-right" id="writer_smartpunct">
+								<option value="0">Off</option>
+								<option value="1">English</option>
+								<option value="2">Italian</option>
+								<option value="3">French</option>
+							</select>
 						</div>
 						<div id="classicmodeoptions" class="hidden">
 							<div class="settinglabel">
@@ -34954,6 +35331,20 @@ Current version indicated by LITEVER below.
 				<button type="button" class="btn btn-primary" onclick="character_creator_done(false);">Cancel</button>
 			</div>
 		</div>
+	</div>
+
+	<div class="wt_findbar hidden" id="wt_findbar">
+		<input type="text" id="wt_find" placeholder="Find" spellcheck="false" onkeydown="return wt_find_keys(event)" oninput="wt_find_update()">
+		<input type="text" id="wt_replace" placeholder="Replace with" spellcheck="false" onkeydown="return wt_find_keys(event)">
+		<button type="button" title="Previous match (Shift+Enter)" onclick="wt_find_step(-1)">&#9650;</button>
+		<button type="button" title="Next match (Enter)" onclick="wt_find_step(1)">&#9660;</button>
+		<button type="button" title="Replace this match" onclick="wt_replace_one()">Replace</button>
+		<button type="button" title="Replace every match in the story" onclick="wt_replace_all()">All</button>
+		<button type="button" id="wt_undo_all" class="hidden" title="Undo the last Replace all" onclick="wt_undo_replace_all()">Undo all</button>
+		<button type="button" title="Close (Esc)" onclick="wt_find_show(false)">&#10005;</button>
+		<input type="checkbox" id="wt_case" onchange="wt_find_update()"><label for="wt_case">Match case</label>
+		<input type="checkbox" id="wt_word" onchange="wt_find_update()"><label for="wt_word">Whole word</label>
+		<span class="wt_findinfo" id="wt_findinfo"></span>
 	</div>
 
 	<div class="popupcontainer flex hidden" id="saveloadcontainer">
