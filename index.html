@@ -3946,6 +3946,22 @@ Current version indicated by LITEVER below.
 		margin-right: 10px;
 		white-space: nowrap;
 	}
+	/* In a writing mode that hides the row under the story (feat/writing-focus-mode),
+	   a faint copy of the count stays in the corner: a count you have to hover to
+	   see is no use while drafting. Harmless without that branch: the class never
+	   appears. */
+	.wt_wordcount_float { display: none; }
+	body.writingmode .wt_wordcount_float {
+		display: block;
+		position: fixed;
+		left: 16px;
+		bottom: 12px;
+		z-index: 5;
+		font-size: 11px;
+		color: var(--theme_color_fg_muted);
+		opacity: .75;
+		pointer-events: none;
+	}
 	.wt_findbar {
 		position: fixed;
 		top: 60px;
@@ -19892,6 +19908,8 @@ Current version indicated by LITEVER below.
 			if (k > 0) { txt += " · " + k.toLocaleString() + " selected"; }
 		}
 		el.innerText = txt;
+		let fl = document.getElementById("wt_wordcount_float");
+		if (fl) { fl.innerText = txt; }
 	}
 	function wt_schedule_wordcount()
 	{
@@ -35365,6 +35383,7 @@ Current version indicated by LITEVER below.
 		</div>
 	</div>
 
+	<div class="wt_wordcount_float" id="wt_wordcount_float"></div>
 	<div class="wt_findbar hidden" id="wt_findbar">
 		<input type="text" id="wt_find" placeholder="Find" spellcheck="false" onkeydown="return wt_find_keys(event)" oninput="wt_find_update()">
 		<input type="text" id="wt_replace" placeholder="Replace with" spellcheck="false" onkeydown="return wt_find_keys(event)">
