@@ -28414,6 +28414,7 @@ Current version indicated by LITEVER below.
 	let mschat_abortctl = null; //cancels the request in flight when the writer presses Stop
 	let mschat_stopped = false; //and tells a map-reduce loop not to start the next one
 	const MSCHAT_MAPREDUCE_CONFIRM = 20; //ask before a map-reduce run makes more requests than this
+	const MSCHAT_RETRIES = 5; //attempts per request when the server says 429 / 503
 	let mschat_hist_pos = -1; //-1 = not stepping through earlier questions
 	let mschat_hist_draft = ""; //what was in the box before stepping started
 	let mschat_kobold_model = ""; //the model KoboldCpp reported on Connect, for answer labels
@@ -28898,6 +28899,12 @@ Current version indicated by LITEVER below.
 		if (t.needmodel && !t.model) { throw new Error("No model chosen for this pane: open the gear button and Fetch or enter one."); }
 		let url = t.url;
 		let headers = mschat_oai_headers(t.key);
+		//Rate limits (429) and "overloaded" (503) are not failures but requests to
+		//wait: map-reduce sends its passages back to back, and hosted tiers allow
+		//only a few requests per second. Wait as asked (Retry-After, when the
+		//server exposes it to the page) or back off 2, 4, 8, 16 s; Stop still works.
+		for (let attempt = 1; ; ++attempt)
+		{
 		let resp;
 		try
 		{
@@ -28925,9 +28932,26 @@ Current version indicated by LITEVER below.
 		let raw = await resp.text();
 		let data = null;
 		try { data = JSON.parse(raw); } catch (e) { /* fall through to the raw text */ }
+		if ((resp.status == 429 || resp.status == 503) && attempt < MSCHAT_RETRIES)
+		{
+			let wait = parseFloat(resp.headers.get("Retry-After"));
+			wait = (wait > 0 && wait < 120) ? wait : Math.pow(2, attempt);
+			let el = document.getElementById("mschatstatus");
+			let before = el ? el.innerText : "";
+			mschat_status((resp.status == 429 ? "rate limited" : "server busy") + " — retrying in " + Math.round(wait) + " s…");
+			await new Promise(r => setTimeout(r, wait * 1000));
+			if (mschat_stopped) { throw new Error("Stopped."); }
+			mschat_status(before);
+			continue;
+		}
 		if (!resp.ok)
 		{
-			let msg = (data && data.error && (data.error.message || data.error.type)) || raw.substr(0, 300);
+			let msg = (data && data.error && (data.error.message || data.error.type)) || (data && data.message) || raw.substr(0, 300);
+			if (resp.status == 429)
+			{
+				msg += " — still rate limited after " + attempt + " tries. The provider allows fewer requests than "
+					+ "this question needs: use Retrieve, or raise the Context for fewer, larger passages.";
+			}
 			throw new Error("HTTP " + resp.status + ": " + msg);
 		}
 		if (!data) { throw new Error("The endpoint did not return JSON: " + raw.substr(0, 200)); }
@@ -28936,6 +28960,7 @@ Current version indicated by LITEVER below.
 		let txt = c && ((c.message && c.message.content) || c.text);
 		if (!txt) { throw new Error("The endpoint returned no message content: " + raw.substr(0, 200)); }
 		return txt.trim();
+		}
 	}
 
 	//--- the ask -----------------------------------------------------------
