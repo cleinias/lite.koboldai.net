@@ -28422,6 +28422,11 @@ Current version indicated by LITEVER below.
 	//are what a writer comes back to (after an edit, or with another model).
 	let mschat_questions = [];
 	let mschat_busy = false;
+	let mschat_last_finish = ""; //finish_reason of the last reply
+	//The request behind each answer, kept in memory (not stored: it holds the
+	//manuscript) so an answer cut off by the reply limit can be continued.
+	let mschat_requests = {};
+	let mschat_request_seq = 0;
 	let mschat_abortctl = null; //cancels the request in flight when the writer presses Stop
 	let mschat_stopped = false; //and tells a map-reduce loop not to start the next one
 	const MSCHAT_MAPREDUCE_CONFIRM = 20; //ask before a map-reduce run makes more requests than this
@@ -28674,6 +28679,11 @@ Current version indicated by LITEVER below.
 			//or of another model, to compare the answers
 			let again = (m.role == "q") ? '<a class="mschatreask" title="Ask this again, of the draft as it is now '
 				+ 'and the connection now set" onclick="mschat_reask(' + i + ')">ask again</a>' : '';
+			if (m.role == "a" && m.cut && mschat_requests[m.rid])
+			{
+				again = '<a class="mschatreask" title="The answer hit the reply limit: ask the model to carry on '
+					+ 'from where it stopped" onclick="mschat_continue(' + i + ')">continue</a>';
+			}
 			html += '<div class="mschatmsg ' + m.role + '"><span class="mschatwho">' + who + again + '</span>'
 				+ escape_html(m.text)
 				+ (m.meta ? '<span class="mschatmeta">\n' + escape_html(m.meta) + '</span>' : '')
@@ -28692,6 +28702,50 @@ Current version indicated by LITEVER below.
 		let d = new Date();
 		return who + " · " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
 	}
+	function mschat_push_answer(text, label, system, user)
+	{
+		let cut = (mschat_last_finish === "length");
+		mschat_push("a", text, label + (cut ? " · cut off at the reply limit" : ""));
+		let m = mschat_history[mschat_history.length - 1];
+		m.rid = "r" + (++mschat_request_seq);
+		m.cut = cut;
+		mschat_requests[m.rid] = { system: system, user: user };
+		mschat_render();
+		mschat_persist();
+	}
+	//Ask the same model to carry a cut-off answer on, with the same passages, and
+	//add what it writes to that answer rather than starting a new one.
+	const mschat_continue = asyncRunner(function* (i)
+	{
+		let m = mschat_history[i];
+		let req = m && mschat_requests[m.rid];
+		if (!req || mschat_busy) { return; }
+		mschat_stopped = false;
+		mschat_abortctl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+		mschat_set_busy(true);
+		mschat_status("continuing…");
+		try
+		{
+			let more = yield mschat_call(req.system, req.user, m.text);
+			m.text = m.text + (/\s$/.test(m.text) || /^[\s.,;:!?)]/.test(more) ? "" : " ") + more;
+			m.cut = (mschat_last_finish === "length");
+			m.meta = m.meta.replace(" · cut off at the reply limit", "") + (m.cut ? " · cut off at the reply limit" : " · continued");
+			mschat_status("");
+		}
+		catch (e)
+		{
+			mschat_push("err", e.message);
+			mschat_status(mschat_stopped ? "" : "failed");
+		}
+		finally
+		{
+			mschat_abortctl = null;
+			mschat_set_busy(false);
+			mschat_render();
+			mschat_persist();
+		}
+	});
+
 	function mschat_push(role, text, meta)
 	{
 		if (role == "a" && !(meta || "").includes("nothing was sent"))
@@ -28893,24 +28947,39 @@ Current version indicated by LITEVER below.
 		return hits.length ? hits : all;
 	}
 
+	//Half the room goes to the latest passages — where the story now is, which
+	//questions like "where could this go next?" depend on and word-matching
+	//cannot find — and the rest to the passages that best match the question.
+	//Returns the picks in manuscript order, with how many came from each source.
 	function mschat_select(order, chunks, budget_chars)
 	{
-		let picked = [], size = 0;
+		let picked = [], size = 0, latest = 0;
+		for (let i = chunks.length - 1; i >= 0; --i)
+		{
+			if (size + chunks[i].length > budget_chars / 2 && picked.length) { break; }
+			picked.push(i);
+			size += chunks[i].length;
+			latest++;
+		}
 		for (let i of order)
 		{
-			if (size + chunks[i].length > budget_chars && picked.length) { break; }
+			if (picked.indexOf(i) >= 0) { continue; }
+			if (size + chunks[i].length > budget_chars) { continue; } //a smaller one may still fit
 			picked.push(i);
 			size += chunks[i].length;
 		}
-		return picked.sort((a, b) => a - b); //keep manuscript order in the prompt
+		picked.sort((a, b) => a - b); //keep manuscript order in the prompt
+		picked.latest = latest;
+		picked.matched = picked.length - latest;
+		return picked;
 	}
 
 	//--- the request -------------------------------------------------------
 	//Its own fetch, deliberately: Lite's generate path carries story state,
 	//samplers and the active connection, none of which this should touch.
 	//asyncRunner + yield rather than async/await: Lite keeps to what Firefox 50 parses.
-	const mschat_call = asyncRunner(function* (system, user)
-{
+	const mschat_call = asyncRunner(function* (system, user, prior)
+	{
 		let t = mschat_target();
 		if (!t.url) { throw new Error("No URL set. Open the gear button and choose a provider for this pane."); }
 		if (t.needmodel && !t.model) { throw new Error("No model chosen for this pane: open the gear button and Fetch or enter one."); }
@@ -28931,7 +29000,12 @@ Current version indicated by LITEVER below.
 				signal: mschat_abortctl ? mschat_abortctl.signal : undefined,
 				body: JSON.stringify({
 					model: t.model,
-					messages: [{ role: "system", content: system }, { role: "user", content: user }],
+					messages: prior
+						? [{ role: "system", content: system }, { role: "user", content: user },
+							{ role: "assistant", content: prior },
+							{ role: "user", content: "Your answer was cut off by the length limit. Continue it exactly where "
+								+ "you stopped, without repeating anything you already wrote." }]
+						: [{ role: "system", content: system }, { role: "user", content: user }],
 					max_tokens: localsettings.mschat_maxtokens,
 					temperature: localsettings.mschat_temperature,
 					stream: false
@@ -28976,13 +29050,14 @@ Current version indicated by LITEVER below.
 		let c = data.choices && data.choices[0];
 		let txt = c && ((c.message && c.message.content) || c.text);
 		if (!txt) { throw new Error("The endpoint returned no message content: " + raw.substr(0, 200)); }
+		mschat_last_finish = (c && c.finish_reason) || ""; //"length" = cut off by the reply limit
 		return txt.trim();
 		}
 	});
 
 	//--- the ask -----------------------------------------------------------
 	const mschat_ask = asyncRunner(function* (preview)
-{
+	{
 		if (mschat_busy) { return; }
 		mschat_save_fields();
 		let box = document.getElementById("mschat_input");
@@ -29029,7 +29104,7 @@ Current version indicated by LITEVER below.
 				}
 				let user = "MANUSCRIPT:\n" + text + "\n\n===\nQUESTION: " + question;
 				if (preview) { mschat_preview_out(user, "stuff — the whole draft"); }
-				else { mschat_push("a", (yield mschat_call(localsettings.mschat_system, user)), "stuff · whole draft (~" + mschat_est_tokens(text).toLocaleString() + " tok)"); }
+				else { mschat_push_answer((yield mschat_call(localsettings.mschat_system, user)), "stuff · whole draft (~" + mschat_est_tokens(text).toLocaleString() + " tok)", localsettings.mschat_system, user); }
 			}
 			else
 			{
@@ -29043,12 +29118,15 @@ Current version indicated by LITEVER below.
 				{
 					let picked = mschat_select(order, chunks, Math.floor(budget_tok * MSCHAT_CPT) - 300);
 					let ctx = picked.map(i => chunks[i]).join("\n\n---\n\n");
-					let note = "[retrieved " + picked.length + "/" + chunks.length + " passages (lexical); the "
-						+ "manuscript is longer than the context, so this is a partial view]";
+					let note = "[a partial view: the manuscript is longer than the context, so these are " + picked.length
+						+ " of its " + chunks.length + " passages, in order — the " + picked.latest + " latest (where the "
+						+ "story now stands) and " + picked.matched + " that best match the question. Say so if the "
+						+ "answer needs parts of the story you were not shown.]";
 					let user = "MANUSCRIPT EXCERPTS:\n" + ctx + "\n\n===\nQUESTION: " + question + "\n" + note;
-					let label = "retrieve · " + picked.length + "/" + chunks.length + " passages";
+					let label = "retrieve · " + picked.latest + " latest + " + picked.matched + " best-matching of "
+						+ chunks.length + " passages";
 					if (preview) { mschat_preview_out(user, label); }
-					else { mschat_push("a", (yield mschat_call(localsettings.mschat_system, user)), label); }
+					else { mschat_push_answer((yield mschat_call(localsettings.mschat_system, user)), label, localsettings.mschat_system, user); }
 				}
 				else if (mode === 3) //map-reduce
 				{
@@ -29120,9 +29198,9 @@ Current version indicated by LITEVER below.
 							+ "usually ONE thing cut by an excerpt boundary: merge such reports before you count or list "
 							+ "anything. Then answer the question in one coherent reply, without repeating yourself. "
 							+ "If it asks for your opinion or judgment, give it, with reasons.";
-						mschat_push("a", (yield mschat_call(localsettings.mschat_system, u)),
+						mschat_push_answer((yield mschat_call(localsettings.mschat_system, u)),
 							"map-reduce · " + chunks.length + " passages"
-							+ (failed.length ? " (" + failed.length + " failed)" : ""));
+							+ (failed.length ? " (" + failed.length + " failed)" : ""), localsettings.mschat_system, u);
 					}
 				}
 			}
