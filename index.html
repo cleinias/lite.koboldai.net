@@ -3592,6 +3592,9 @@ Current version indicated by LITEVER below.
 		padding: 24px 16px var(--writing_typewriter_pad) 16px;
 		hyphens: auto;
 		overflow-wrap: anywhere;
+		/* the text block is a sheet a shade lighter than the page around it */
+		background-color: var(--writing_sheet, transparent);
+		border-radius: 3px;
 	}
 	/* A thin scrollbar in the page's own colours, not a bright system bar
 	   standing beside the column. */
@@ -3646,7 +3649,8 @@ Current version indicated by LITEVER below.
 	   ink). Both are complete: page, menu, buttons, panels and popups, so no
 	   corner of the theme is left showing through. "Theme" keeps the theme. */
 	body.writingmode.writing_paper {
-		--theme_color_bg_outer: #f6f3ec;
+		--writing_sheet: #faf8f3;
+		--theme_color_bg_outer: #e9e4d8;
 		--theme_color_bg_chat: #f6f3ec;
 		--theme_color_bg_popups: #fbf9f4;
 		--theme_color_bg_muted: #ebe6da;
@@ -3666,7 +3670,8 @@ Current version indicated by LITEVER below.
 		--theme_color_ai_msg_fg: #23201b;
 	}
 	body.writingmode.writing_night {
-		--theme_color_bg_outer: #1e1e1d;
+		--writing_sheet: #222221;
+		--theme_color_bg_outer: #181817;
 		--theme_color_bg_chat: #1e1e1d;
 		--theme_color_bg_popups: #262625;
 		--theme_color_bg_muted: #3a3a38;
