@@ -28927,13 +28927,25 @@ Current version indicated by LITEVER below.
 		if (custom) { c.value = sel.value || ""; }
 		c.classList.toggle("hidden", !custom);
 		sel.classList.toggle("hidden", custom);
-		if (custom) { c.focus(); }
+		if (custom) { c.focus(); } else { mschat_model_change(); }
 	}
 	function mschat_oai_headers(key)
 	{
 		let h = { "Content-Type": "application/json" };
 		if (key) { h["Authorization"] = "Bearer " + key; }
 		return h;
+	}
+	//Context windows as the provider's model list reports them, by model id.
+	//Mistral calls the field max_context_length, OpenRouter context_length;
+	//a list that gives neither (OpenAI) leaves the Context field to the writer.
+	var mschat_model_ctx = {};
+	function mschat_model_change()
+	{
+		let n = mschat_model_ctx[mschat_selected_model()];
+		if (!n) { return; }
+		localsettings.mschat_context = n;
+		document.getElementById("mschat_context").value = n;
+		document.getElementById("mschat_conninfo").innerText = mschat_selected_model() + " · " + n + " ctx";
 	}
 	function mschat_fetch_models(quiet)
 	{
@@ -28948,8 +28960,16 @@ Current version indicated by LITEVER below.
 			let arr = (data && data.data) || (Array.isArray(data) ? data : []);
 			let ids = arr.map(m => m && m.id).filter(x => !!x).sort();
 			if (!ids.length) { throw new Error((data && data.error && (data.error.message || data.error)) || "no models listed"); }
+			mschat_model_ctx = {};
+			for (let m of arr)
+			{
+				let n = m && parseInt(m.max_context_length || m.context_length || m.context_window
+					|| (m.top_provider && m.top_provider.context_length));
+				if (m && m.id && n > 0) { mschat_model_ctx[m.id] = n; }
+			}
 			mschat_set_model_options(ids, mschat_selected_model() || ids[0]);
 			info.innerText = ids.length + " models";
+			mschat_model_change();
 			return true;
 		})
 		.catch(e => {
@@ -35214,7 +35234,7 @@ Current version indicated by LITEVER below.
 				</div>
 				<div class="mschatconnrow">
 					<label for="mschat_model">Model</label>
-					<select id="mschat_model" title="Model choice"></select>
+					<select id="mschat_model" title="Model choice" onchange="mschat_model_change()"></select>
 					<input type="text" id="mschat_model_custom" class="hidden" spellcheck="false" placeholder="Custom model name">
 					<button type="button" class="btn btn-primary mschatconnbtn" onclick="mschat_fetch_models()">Fetch</button>
 					<button type="button" class="btn btn-primary mschatconnbtn" onclick="mschat_custom_model()">Custom</button>
