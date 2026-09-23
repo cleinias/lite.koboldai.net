@@ -5898,6 +5898,7 @@ Current version indicated by LITEVER below.
 	//invert colors
 	toggle_theme_colors();
 	toggle_sidepanel_mode();
+	document.getElementById("gametext").addEventListener("input", continuous_save_on_typing); //feat/continuous-save-to-disk
 
 	//start the polling script for async generation status checking every Xs
 	setInterval(poll_pending_response, poll_interval_base_text);
@@ -28172,10 +28173,10 @@ Current version indicated by LITEVER below.
 	//a mirror. Toggle it in Settings ("Continuous save to file", default port 5002). The server must
 	//send an Access-Control-Allow-Origin header or the browser will block the POST.
 	//The endpoint is built from the port setting (default 5002).
-	function continuous_save_to_disk() {
+	function continuous_save_to_disk(livetext) {
 		if (!localsettings.continuous_save_enabled) { return; }
 		try {
-			let story = concat_gametext(true, "");
+			let story = (typeof livetext === "string") ? livetext : concat_gametext(true, "");
 			fetch("http://localhost:" + (localsettings.continuous_save_port || 5002) + "/save", {
 				method: "POST",
 				headers: { "Content-Type": "text/plain;charset=UTF-8" },
@@ -28183,6 +28184,23 @@ Current version indicated by LITEVER below.
 				keepalive: true
 			}).catch(() => {}); //server down / CORS: silently skip this mirror
 		} catch (e) { /* never let the disk mirror break autosave */ }
+	}
+
+	//Typing in the story with Allow Editing on does not touch the story buffer
+	//until the page loses focus (merge_edit_field rebuilds the text, so it cannot
+	//run mid-typing), and so does not autosave either: the mirror would lag a
+	//whole writing stretch behind. Instead, a moment after typing stops, send
+	//the text as it stands on the page — read only, the same text the merge
+	//will take — so the mirror follows the writer, not the focus.
+	var continuous_save_typing_timer = null;
+	function continuous_save_on_typing() {
+		if (!localsettings.continuous_save_enabled) { return; }
+		clearTimeout(continuous_save_typing_timer);
+		continuous_save_typing_timer = setTimeout(function () {
+			if (!document.getElementById("allowediting").checked) { return; }
+			let live = (undisplayed_editing_text || "") + document.getElementById("gametext").innerText;
+			continuous_save_to_disk(live);
+		}, 1500);
 	}
 
 	function autosave() {
