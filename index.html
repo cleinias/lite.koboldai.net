@@ -28403,8 +28403,19 @@ Current version indicated by LITEVER below.
 		+ "it its this that these those he she they i you we him her them his "
 		+ "their our your as by from not no do does did has have had will would "
 		+ "can could may might so if then than there here what which who whom "
-		+ "when where why how all any some").split(" "));
-	const MSCHAT_WORD_RE = /[^\W\d_]+/gu;
+		+ "when where why how all any some "
+		//Italian and French function words too: questions and manuscripts in those
+		//languages would otherwise rank passages on "che", "il", "qui", "les"
+		+ "il lo la gli le un una uno di da con su per tra fra ma che chi non è sono era erano "
+		+ "del della dei degli delle al allo alla ai agli alle nel nella nei negli nelle sul sulla "
+		+ "come cosa quando dove perché se si ci ne mi ti lui lei loro questo questa quello quella "
+		+ "les une des du de et ou mais que qui ne pas est été était il elle ils elles je tu nous vous "
+		+ "au aux en dans pour par avec ce cet cette ces son sa ses leur leurs se où pourquoi").split(" "));
+	//Letters in the Latin, Greek and Cyrillic scripts, accented or not, with
+	//combining accents kept inside the word. \w (and so [^\W\d_]) is ASCII-only in
+	//JavaScript even with the u flag, which cut "città" to "citt" and "perché" to
+	//"perch"; \p{L} would be the modern answer but Firefox 50 cannot parse it.
+	const MSCHAT_WORD_RE = /[A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F\u0300-\u036F\u0370-\u03FF\u0400-\u04FF\u1E00-\u1EFF]+/g;
 	let mschat_history = []; //[{role:"q"|"a"|"err", text, meta}]
 	//Every question asked, oldest first, each once. Kept apart from the transcript
 	//so that clearing the conversation does not throw away the questions: they
@@ -28844,11 +28855,13 @@ Current version indicated by LITEVER below.
 	function mschat_tok(s)
 	{
 		let out = [], m;
-		let low = s.toLowerCase();
+		//NFC first, so "é" typed as e + combining accent matches "é" typed as one character
+		let low = (s.normalize ? s.normalize("NFC") : s).toLowerCase();
 		MSCHAT_WORD_RE.lastIndex = 0; //a global regex carries its position between calls
 		while ((m = MSCHAT_WORD_RE.exec(low)) !== null) //exec loop rather than matchAll: Firefox 50
 		{
-			if (!MSCHAT_STOP.has(m[0])) { out.push(m[0]); }
+			//one letter is an elision fragment (l', d', j') or a word too common to rank on
+			if (m[0].length > 1 && !MSCHAT_STOP.has(m[0])) { out.push(m[0]); }
 		}
 		return out;
 	}
