@@ -3676,6 +3676,12 @@ Current version indicated by LITEVER below.
 	.mschatmsg .mschatmeta { font-size: 10px; color: var(--theme_color_fg_muted); }
 	.mschatmsg .mschatreask { font-size: 10px; margin-left: 8px; cursor: pointer; color: var(--theme_color_fg_highlight); }
 	.mschatmsg .mschatreask:hover { text-decoration: underline; }
+	.mschatmsg .mschatcontinue {
+		display: block; margin: 6px 0 2px 0; padding: 2px 10px; font-size: 11px; cursor: pointer;
+		color: var(--theme_color_accent_fg); background-color: var(--theme_color_accent_bg);
+		border: 1px solid var(--theme_color_border); border-radius: 4px;
+	}
+	.mschatmsg .mschatcontinue:hover { background-color: var(--theme_color_accent_bg_highlight); }
 	.mschatinputrow {
 		flex: 0 0 auto;
 		display: flex;
@@ -28679,13 +28685,13 @@ Current version indicated by LITEVER below.
 			//or of another model, to compare the answers
 			let again = (m.role == "q") ? '<a class="mschatreask" title="Ask this again, of the draft as it is now '
 				+ 'and the connection now set" onclick="mschat_reask(' + i + ')">ask again</a>' : '';
-			if (m.role == "a" && m.cut && mschat_requests[m.rid])
-			{
-				again = '<a class="mschatreask" title="The answer hit the reply limit: ask the model to carry on '
-					+ 'from where it stopped" onclick="mschat_continue(' + i + ')">continue</a>';
-			}
+			//continue sits where the answer stops, not in its header: after a long
+			//answer the reader is at the bottom, and a header link is out of view
+			let more = (m.role == "a" && m.cut && mschat_requests[m.rid])
+				? '<button type="button" class="mschatcontinue" title="The answer hit the reply limit: ask the model '
+					+ 'to carry on from where it stopped" onclick="mschat_continue(' + i + ')">continue ▸</button>' : '';
 			html += '<div class="mschatmsg ' + m.role + '"><span class="mschatwho">' + who + again + '</span>'
-				+ escape_html(m.text)
+				+ escape_html(m.text) + more
 				+ (m.meta ? '<span class="mschatmeta">\n' + escape_html(m.meta) + '</span>' : '')
 				+ '</div>';
 		}
