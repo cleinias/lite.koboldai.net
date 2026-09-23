@@ -3651,6 +3651,11 @@ Current version indicated by LITEVER below.
 		/* Lite tints links and markdown with the theme's highlight colour, which is
 		   picked for a dark background and washes out on paper. Darken it. */
 		--theme_color_fg_highlight: #1d4f7c;
+		/* Panels and popups too, or a dark Context/Settings panel lands on the page
+		   like a hole in it. The accent colour is left alone: a coloured title bar
+		   against cream reads as an accent, not as a mistake. */
+		--theme_color_bg_popups: #fbf9f4;
+		--theme_color_bg_muted: #ebe6da;
 	}
 	body.writingmode.writing_paper #gametext,
 	body.writingmode.writing_paper #input_text { color: var(--theme_color_ai_msg_fg); }
