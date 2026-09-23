@@ -3674,6 +3674,8 @@ Current version indicated by LITEVER below.
 	.mschatmsg.q { color: var(--theme_color_fg_highlight); }
 	.mschatmsg.err { color: #e08b8b; }
 	.mschatmsg .mschatmeta { font-size: 10px; color: var(--theme_color_fg_muted); }
+	.mschatmsg .mschatreask { font-size: 10px; margin-left: 8px; cursor: pointer; color: var(--theme_color_fg_highlight); }
+	.mschatmsg .mschatreask:hover { text-decoration: underline; }
 	.mschatinputrow {
 		flex: 0 0 auto;
 		display: flex;
@@ -28405,6 +28407,9 @@ Current version indicated by LITEVER below.
 	const MSCHAT_WORD_RE = /[^\W\d_]+/gu;
 	let mschat_history = []; //[{role:"q"|"a"|"err", text, meta}]
 	let mschat_busy = false;
+	let mschat_hist_pos = -1; //-1 = not stepping through earlier questions
+	let mschat_hist_draft = ""; //what was in the box before stepping started
+	let mschat_kobold_model = ""; //the model KoboldCpp reported on Connect, for answer labels
 
 	function mschat_show(show)
 	{
@@ -28604,6 +28609,7 @@ Current version indicated by LITEVER below.
 						localsettings.mschat_context = parseInt(c.value);
 						document.getElementById("mschat_context").value = localsettings.mschat_context;
 					}
+					mschat_kobold_model = model;
 					info.innerText = "Connected: " + model + (c && c.value ? " · " + c.value + " ctx" : "");
 				}).catch(() => { info.innerText = "Connected: " + model; });
 		})
@@ -28641,10 +28647,15 @@ Current version indicated by LITEVER below.
 			return;
 		}
 		let html = "";
-		for (let m of mschat_history)
+		for (let i = 0; i < mschat_history.length; ++i)
 		{
+			let m = mschat_history[i];
 			let who = (m.role == "q") ? "You" : (m.role == "err" ? "Error" : "Model");
-			html += '<div class="mschatmsg ' + m.role + '"><span class="mschatwho">' + who + '</span>'
+			//a question can be asked again as it stands: after an edit to the draft,
+			//or of another model, to compare the answers
+			let again = (m.role == "q") ? '<a class="mschatreask" title="Ask this again, of the draft as it is now '
+				+ 'and the connection now set" onclick="mschat_reask(' + i + ')">ask again</a>' : '';
+			html += '<div class="mschatmsg ' + m.role + '"><span class="mschatwho">' + who + again + '</span>'
 				+ escape_html(m.text)
 				+ (m.meta ? '<span class="mschatmeta">\n' + escape_html(m.meta) + '</span>' : '')
 				+ '</div>';
@@ -28653,8 +28664,21 @@ Current version indicated by LITEVER below.
 		log.scrollTop = log.scrollHeight;
 	}
 
+	//Which model answered and when, so the same question asked of two models,
+	//or of two versions of the draft, can be told apart in the transcript.
+	function mschat_answer_stamp()
+	{
+		let who = (localsettings.mschat_provider == 2) ? (localsettings.mschat_model || "?")
+			: (mschat_kobold_model || "KoboldCpp");
+		let d = new Date();
+		return who + " · " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+	}
 	function mschat_push(role, text, meta)
 	{
+		if (role == "a" && !(meta || "").includes("nothing was sent"))
+		{
+			meta = (meta ? meta + " · " : "") + mschat_answer_stamp();
+		}
 		mschat_history.push({ role: role, text: text, meta: meta || "" });
 		mschat_render();
 		mschat_persist();
@@ -28676,12 +28700,57 @@ Current version indicated by LITEVER below.
 		catch (e) { /* a full or blocked store must not break the pane */ }
 	}
 
+	//The questions asked so far, oldest first, each once (at its latest asking).
+	function mschat_past_questions()
+	{
+		let out = [];
+		for (let m of mschat_history)
+		{
+			if (m.role != "q") { continue; }
+			let k = out.indexOf(m.text);
+			if (k >= 0) { out.splice(k, 1); }
+			out.push(m.text);
+		}
+		return out;
+	}
+	function mschat_reask(i)
+	{
+		let m = mschat_history[i];
+		if (!m || m.role != "q" || mschat_busy) { return; }
+		document.getElementById("mschat_input").value = m.text;
+		mschat_ask();
+	}
 	function mschat_handle_typing(event)
 	{
 		if (event.key === "Enter" && !event.shiftKey)
 		{
 			event.preventDefault();
 			mschat_ask();
+			return false;
+		}
+		//Up and Down step through earlier questions, as in a terminal — but only
+		//from the first or last line, so they still move the caret in a long question.
+		let box = event.target;
+		let before = box.value.substring(0, box.selectionStart);
+		let after = box.value.substring(box.selectionEnd);
+		if (event.key === "ArrowUp" && !before.includes("\n"))
+		{
+			let past = mschat_past_questions();
+			if (!past.length) { return true; }
+			if (mschat_hist_pos < 0) { mschat_hist_draft = box.value; mschat_hist_pos = past.length; }
+			if (mschat_hist_pos == 0) { return false; }
+			mschat_hist_pos -= 1;
+			box.value = past[mschat_hist_pos];
+			event.preventDefault();
+			return false;
+		}
+		if (event.key === "ArrowDown" && !after.includes("\n") && mschat_hist_pos >= 0)
+		{
+			let past = mschat_past_questions();
+			mschat_hist_pos += 1;
+			if (mschat_hist_pos >= past.length) { box.value = mschat_hist_draft; mschat_hist_pos = -1; }
+			else { box.value = past[mschat_hist_pos]; }
+			event.preventDefault();
 			return false;
 		}
 		return true;
@@ -28892,6 +28961,7 @@ Current version indicated by LITEVER below.
 		if (!preview)
 		{
 			box.value = "";
+			mschat_hist_pos = -1;
 			mschat_push("q", question);
 		}
 		mschat_busy = true;
@@ -34810,7 +34880,7 @@ Current version indicated by LITEVER below.
 		</div>
 		<div class="mschatlog" id="mschatlog"></div>
 		<div class="mschatinputrow">
-			<textarea id="mschat_input" rows="2" placeholder="Ask about the draft — Enter to send, Shift+Enter for a new line" onkeydown="return mschat_handle_typing(event)"></textarea>
+			<textarea id="mschat_input" rows="2" placeholder="Ask about the draft — Enter to send, Shift+Enter for a new line, ↑ for earlier questions" onkeydown="return mschat_handle_typing(event)"></textarea>
 			<div class="mschatsendcol">
 				<button type="button" class="btn btn-primary mschatsendbtn" id="mschat_send" onclick="mschat_ask()">Ask</button>
 				<button type="button" class="mschatpreviewbtn" id="mschat_preview" title="Show what would be sent, without sending it" onclick="mschat_ask(true)">preview</button>
