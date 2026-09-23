@@ -3962,6 +3962,14 @@ Current version indicated by LITEVER below.
 		opacity: .75;
 		pointer-events: none;
 	}
+	.wt_findmark {
+		position: fixed;
+		z-index: 59;
+		pointer-events: none; /* the story underneath stays clickable */
+		background-color: rgba(255, 200, 0, .35);
+		outline: 2px solid rgba(230, 150, 0, .9);
+		border-radius: 2px;
+	}
 	.wt_findbar {
 		position: fixed;
 		top: 60px;
@@ -6406,6 +6414,8 @@ Current version indicated by LITEVER below.
 		gt.addEventListener("input", wt_schedule_wordcount);
 		if (window.MutationObserver) { new MutationObserver(wt_schedule_wordcount).observe(gt, { childList: true, subtree: true, characterData: true }); }
 		document.addEventListener("selectionchange", wt_schedule_wordcount);
+		gt.addEventListener("scroll", wt_reposition_mark);
+		window.addEventListener("resize", wt_reposition_mark);
 		document.addEventListener("keydown", function (ev) {
 			if ((ev.ctrlKey || ev.metaKey) && !ev.altKey && (ev.key === "h" || ev.key === "H")) { ev.preventDefault(); wt_find_show(true); }
 		});
@@ -19945,6 +19955,7 @@ Current version indicated by LITEVER below.
 		{
 			wt_matches = [];
 			wt_current = -1;
+			document.getElementById("wt_findmark").classList.add("hidden");
 		}
 	}
 	function wt_escape_re(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
@@ -19980,7 +19991,7 @@ Current version indicated by LITEVER below.
 		wt_matches = [];
 		let re = wt_query_re();
 		let info = document.getElementById("wt_findinfo");
-		if (!re || gametext_arr.length == 0) { info.innerText = ""; wt_current = -1; return; }
+		if (!re || gametext_arr.length == 0) { info.innerText = ""; wt_current = -1; document.getElementById("wt_findmark").classList.add("hidden"); return; }
 		let nodes = wt_text_nodes();
 		let text = nodes.map(n => n.node.nodeValue).join("");
 		let whole = document.getElementById("wt_word").checked;
@@ -19993,31 +20004,64 @@ Current version indicated by LITEVER below.
 		}
 		wt_current = wt_matches.length ? 0 : -1;
 		info.innerText = wt_matches.length ? ("1 of " + wt_matches.length) : "no matches";
-		if (wt_matches.length) { wt_select_current(false); }
+		if (wt_matches.length) { wt_show_current(); } else { document.getElementById("wt_findmark").classList.add("hidden"); }
 	}
-	function wt_select_current(focus)
+	function wt_current_range()
 	{
-		if (wt_current < 0) { return false; }
+		if (wt_current < 0 || !wt_matches[wt_current]) { return null; }
 		let nodes = wt_text_nodes();
 		let mt = wt_matches[wt_current];
 		let a = wt_locate(nodes, mt.a), b = wt_locate(nodes, mt.b);
-		if (!a || !b) { return false; }
+		if (!a || !b) { return null; }
 		let r = document.createRange();
 		r.setStart(a.node, a.offset);
 		r.setEnd(b.node, b.offset);
-		let sel = window.getSelection();
-		sel.removeAllRanges();
-		sel.addRange(r);
-		let el = a.node.parentElement;
-		if (el && el.scrollIntoView) { el.scrollIntoView({ block: "center" }); }
+		return r;
+	}
+	//Show the current match WITHOUT selecting it: selecting text in the story
+	//pulls the keyboard focus there, so the rest of what you type in the find
+	//box lands in the story (a writer typing "pippo" got "p" found and "ippo"
+	//inserted at it). A highlight drawn over the text changes neither the story
+	//nor the focus.
+	function wt_show_current()
+	{
+		let mark = document.getElementById("wt_findmark");
+		let r = wt_current_range();
+		if (!r) { mark.classList.add("hidden"); return false; }
+		let gt = document.getElementById("gametext");
+		let box = gt.getBoundingClientRect();
+		let rect = r.getBoundingClientRect();
+		//bring it to the middle of the story's own scroll area if it is out of view
+		if (rect.top < box.top || rect.bottom > box.bottom)
+		{
+			gt.scrollTop += (rect.top - box.top) - gt.clientHeight / 2;
+			rect = r.getBoundingClientRect();
+		}
+		wt_place_mark(rect);
 		document.getElementById("wt_findinfo").innerText = (wt_current + 1) + " of " + wt_matches.length;
 		return true;
+	}
+	function wt_place_mark(rect)
+	{
+		let mark = document.getElementById("wt_findmark");
+		if (!rect || (rect.width == 0 && rect.height == 0)) { mark.classList.add("hidden"); return; }
+		mark.style.left = (rect.left - 1) + "px";
+		mark.style.top = (rect.top - 1) + "px";
+		mark.style.width = (rect.width + 2) + "px";
+		mark.style.height = (rect.height + 2) + "px";
+		mark.classList.remove("hidden");
+	}
+	function wt_reposition_mark()
+	{
+		if (document.getElementById("wt_findbar").classList.contains("hidden")) { return; }
+		let r = wt_current_range();
+		wt_place_mark(r ? r.getBoundingClientRect() : null);
 	}
 	function wt_find_step(dir)
 	{
 		if (!wt_matches.length) { wt_find_update(); if (!wt_matches.length) { return; } }
 		wt_current = (wt_current + dir + wt_matches.length) % wt_matches.length;
-		wt_select_current(false);
+		wt_show_current();
 	}
 	function wt_find_keys(ev)
 	{
@@ -20057,18 +20101,23 @@ Current version indicated by LITEVER below.
 	function wt_replace_one()
 	{
 		if (!wt_matches.length) { wt_find_update(); if (!wt_matches.length) { return; } }
+		let back = (document.activeElement && document.activeElement.id === "wt_replace") ? "wt_replace" : "wt_find";
 		wt_ensure_editing();
 		wt_find_update_keep();
-		if (!wt_select_current(true)) { return; }
 		let gt = document.getElementById("gametext");
 		gt.focus();
-		wt_select_current(true); //focus can move the selection; put it back on the match
+		let r = wt_current_range(); //after focusing: focus can re-render the story
+		if (!r) { return; }
+		let sel = window.getSelection();
+		sel.removeAllRanges();
+		sel.addRange(r);
 		wt_insert_text(document.getElementById("wt_replace").value);
 		wt_schedule_wordcount();
-		//move on to the next match, as editors do
+		//give the keyboard back to the find bar, then move on to the next match
 		let keep = wt_current;
+		document.getElementById(back).focus();
 		wt_find_update();
-		if (wt_matches.length) { wt_current = Math.min(keep, wt_matches.length - 1); wt_select_current(false); }
+		if (wt_matches.length) { wt_current = Math.min(keep, wt_matches.length - 1); wt_show_current(); }
 	}
 	//re-find without losing our place (the page may have been re-rendered)
 	function wt_find_update_keep()
@@ -35384,6 +35433,7 @@ Current version indicated by LITEVER below.
 	</div>
 
 	<div class="wt_wordcount_float" id="wt_wordcount_float"></div>
+	<div class="wt_findmark hidden" id="wt_findmark"></div>
 	<div class="wt_findbar hidden" id="wt_findbar">
 		<input type="text" id="wt_find" placeholder="Find" spellcheck="false" onkeydown="return wt_find_keys(event)" oninput="wt_find_update()">
 		<input type="text" id="wt_replace" placeholder="Replace with" spellcheck="false" onkeydown="return wt_find_keys(event)">
