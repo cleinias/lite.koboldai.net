@@ -1426,6 +1426,9 @@ Current version indicated by LITEVER below.
 		padding-left: 6px;
 		padding-right: 6px;
 	}
+	#actionmenuitems button#btn_actposthistory,#actionmenuitems2 button#btn_actposthistory2 {
+		width: auto;
+	}
 	#actionmenuitems button.slim,#actionmenuitems2 button.slim {
 		width: 32px;
 		padding-left: 4px;
@@ -26297,7 +26300,6 @@ Current version indicated by LITEVER below.
 				return;
 			}
 			btn.classList.remove("hidden");
-			btn.innerText = (posthistory_off ? "Post-History Off" : "Post-History On");
 			btn.style.textDecoration = (posthistory_off ? "line-through" : "");
 			btn.style.opacity = (posthistory_off ? "0.6" : "");
 			btn.title = (posthistory_off ? "Post-History is NOT being sent (the text is kept). Click to send it again." : "Post-History is sent at the end of the context. Click to stop sending it without deleting it.");
