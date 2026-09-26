@@ -4310,6 +4310,7 @@ Current version indicated by LITEVER below.
 	var current_anotetemplate = "[Author\'s note: <|>]";
 
 	var current_posthistory = ""; //post-history instructions, injected at the very end of context (deepest position)
+	var posthistory_off = false; //post-history kept but not sent, e.g. to continue an unfinished sentence
 	var anote_strength = 320; //distance from end
 	var newlineaftermemory = true;
 	var current_wi = []; //each item stores a wi object.
@@ -11030,6 +11031,9 @@ Current version indicated by LITEVER below.
 		new_save_storyobj.authorsnote = current_anote;
 		new_save_storyobj.memory = current_memory;
 		new_save_storyobj.posthistory = current_posthistory;
+		if (posthistory_off) {
+			new_save_storyobj.posthistory_off = true;
+		}
 		new_save_storyobj.worldinfo = current_wi;
 
 		//extra unofficial fields for the story
@@ -11362,6 +11366,7 @@ Current version indicated by LITEVER below.
 				if (storyobj.posthistory) {
 					current_posthistory = storyobj.posthistory;
 				}
+				posthistory_off = (storyobj.posthistory_off?true:false);
 				if (storyobj.worldinfo) {
 					current_wi = storyobj.worldinfo;
 				}
@@ -11477,6 +11482,7 @@ Current version indicated by LITEVER below.
 				if (storyobj.posthistory) {
 					current_posthistory = storyobj.posthistory;
 				}
+				posthistory_off = (storyobj.posthistory_off?true:false);
 				if (storyobj.worldinfo_v2 != null && storyobj.worldinfo_v2.entries != null) {
 					for (var key in storyobj.worldinfo_v2.entries) {
 						var itm = storyobj.worldinfo_v2.entries[key];
@@ -18572,6 +18578,8 @@ Current version indicated by LITEVER below.
 		current_memory = document.getElementById("memorytext").value;
 		current_anote = document.getElementById("anotetext").value;
 		current_posthistory = document.getElementById("posthistorytext").value;
+		posthistory_off = !document.getElementById("posthistoryon").checked;
+		update_posthistory_btn();
 		current_anotetemplate = document.getElementById("anotetemplate").value;
 		anote_strength = document.getElementById("anote_strength").value;
 		newlineaftermemory = (document.getElementById("newlineaftermemory").checked?true:false);
@@ -19083,6 +19091,7 @@ Current version indicated by LITEVER below.
 			current_memory = "";
 			current_anote = "";
 			current_posthistory = "";
+			posthistory_off = false;
 			current_wi = [];
 			anote_strength = 320;
 			wi_searchdepth = 0;
@@ -21777,7 +21786,7 @@ Current version indicated by LITEVER below.
 			}
 
 			let truncated_anote = current_anotetemplate.replace("<|>", current_anote);
-			let truncated_posthistory = current_posthistory ? current_posthistory : "";
+			let truncated_posthistory = (current_posthistory && !posthistory_off) ? current_posthistory : "";
 
 			if (current_anote.length == 0) {
 				//if there's no authors note at all, don't include the template
@@ -26277,8 +26286,33 @@ Current version indicated by LITEVER below.
 		element.addEventListener("load", () => handle_autoscroll(false), true);
 	}
 
+	function update_posthistory_btn()
+	{
+		let has_text = (current_posthistory && current_posthistory.trim() != "");
+		["btn_actposthistory","btn_actposthistory2"].forEach(function(id) {
+			let btn = document.getElementById(id);
+			if (!btn) { return; }
+			if (!has_text) {
+				btn.classList.add("hidden");
+				return;
+			}
+			btn.classList.remove("hidden");
+			btn.innerText = (posthistory_off ? "Post-History Off" : "Post-History On");
+			btn.style.textDecoration = (posthistory_off ? "line-through" : "");
+			btn.style.opacity = (posthistory_off ? "0.6" : "");
+			btn.title = (posthistory_off ? "Post-History is NOT being sent (the text is kept). Click to send it again." : "Post-History is sent at the end of the context. Click to stop sending it without deleting it.");
+		});
+	}
+	function toggle_posthistory()
+	{
+		posthistory_off = !posthistory_off;
+		update_posthistory_btn();
+		autosave();
+	}
+
 	function render_gametext(save=true, force_scroll=true)
 	{
+		update_posthistory_btn();
 		document.getElementById("gametext").contentEditable = (document.getElementById("allowediting").checked && pending_response_id=="");
 		let inEditMode = (document.getElementById("allowediting").checked ? true : false);
 		undisplayed_editing_text = "";
@@ -28316,6 +28350,7 @@ Current version indicated by LITEVER below.
 		document.getElementById("memorytext").value = current_memory;
 		document.getElementById("anotetext").value = current_anote;
 		document.getElementById("posthistorytext").value = current_posthistory;
+		document.getElementById("posthistoryon").checked = !posthistory_off;
 		document.getElementById("anotetemplate").value = current_anotetemplate;
 		document.getElementById("anote_strength").value = anote_strength;
 		document.getElementById("newlineaftermemory").checked = (newlineaftermemory?true:false);
@@ -31244,6 +31279,7 @@ Current version indicated by LITEVER below.
 				<button type="button" class="btn actbtn btn-primary mainnav" id="btn_actundo" onpointerdown="btn_back_longpress_start()" onpointerleave="btn_back_longpress_end()" onpointerup="btn_back_longpress_end()" onclick="btn_back()">Undo</button>
 				<button type="button" class="btn actbtn btn-primary mainnav" id="btn_actredo" onpointerdown="btn_redo_longpress_start()" onpointerleave="btn_redo_longpress_end()" onpointerup="btn_redo_longpress_end()" onclick="btn_redo()">Redo</button>
 				<button type="button" class="btn actbtn btn-primary mainnav" id="btn_actretry" onclick="btn_retry()">Retry</button>
+				<button type="button" class="btn actbtn btn-primary mainnav hidden" id="btn_actposthistory" onclick="toggle_posthistory()">Post-History</button>
 				<button type="button" class="btn actbtn btn-primary mainnav" id="btn_actbranch" onclick="btn_branch(this)">Branch</button>
 				<button type="button" class="btn actbtn btn-primary mainnav" id="btn_addmedia" onclick="add_media_btn_menu()">Add File</button>
 				<button type="button" class="btn actbtn btn-primary mainnav slim btnicon-websearch hidden" id="btn_togglesearch" onclick="toggle_websearch_minibtn()">&nbsp;</button>
@@ -31294,6 +31330,7 @@ Current version indicated by LITEVER below.
 						<button type="button" class="btn actbtn btn-primary mainnav" id="btn_actundo2" onpointerdown="btn_back_longpress_start()" onpointerleave="btn_back_longpress_end()" onpointerup="btn_back_longpress_end()" onclick="btn_back()">Undo</button>
 						<button type="button" class="btn actbtn btn-primary mainnav" id="btn_actredo2" onpointerdown="btn_redo_longpress_start()" onpointerleave="btn_redo_longpress_end()" onpointerup="btn_redo_longpress_end()" onclick="btn_redo()">Redo</button>
 						<button type="button" class="btn actbtn btn-primary mainnav" id="btn_actretry2" onclick="btn_retry()">Retry</button>
+						<button type="button" class="btn actbtn btn-primary mainnav hidden" id="btn_actposthistory2" onclick="toggle_posthistory()">Post-History</button>
 						<button type="button" class="btn actbtn btn-primary mainnav" id="btn_actbranch2" onclick="btn_branch(this)">Branch</button>
 						<button type="button" class="btn actbtn btn-primary mainnav" id="btn_addmedia2" onclick="add_media_btn_menu()">Add File</button>
 						<button type="button" class="btn actbtn btn-primary mainnav slim btnicon-websearch hidden" id="btn_togglesearch2" onclick="toggle_websearch_minibtn()">&nbsp;</button>
@@ -31412,6 +31449,8 @@ Current version indicated by LITEVER below.
 				<div class="settinglabel">
 					<span class="justifyleft">Post-History Instructions <span class="helpicon">?<span
 						class="helptext">Injected at the very end of the context, immediately before the AI's reply - the deepest, least-forgotten position. Ideal for style rules you want re-asserted every turn.</span></span></span>
+					<span class="justifyright push-right"><input type="checkbox" id="posthistoryon" checked> <label for="posthistoryon">On</label> <span class="helpicon">?<span
+						class="helptext">Untick to keep the text but stop sending it, e.g. to continue an unfinished sentence (the fragment must be the last thing in the context). Also toggled by the Post-History button beside Retry.</span></span></span>
 				</div>
 				<textarea title="Edit Post-History Instructions" style="height: 80px;" class="form-control menuinput_multiline" id="posthistorytext"
 					placeholder="Injected at the very end of context, just before the AI's reply."></textarea>
